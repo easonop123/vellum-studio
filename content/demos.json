@@ -1,0 +1,36 @@
+{
+  "hero": {
+    "title": "tokyo",
+    "video": "/demos/hero.mp4",
+    "poster": "/demos/hero.jpg"
+  },
+  "beforeAfter": {
+    "raw": "/demos/raw.mp4",
+    "edit": "/demos/edit.mp4",
+    "poster": "/demos/edit.jpg",
+    "rawLabel": "IMG_4821.MOV"
+  },
+  "demos": [
+    {
+      "title": "tokyo",
+      "video": "/demos/tokyo.mp4",
+      "poster": "/demos/tokyo.jpg",
+      "clips": 24,
+      "seconds": 30
+    },
+    {
+      "title": "italy",
+      "video": "/demos/italy.mp4",
+      "poster": "/demos/italy.jpg",
+      "clips": 31,
+      "seconds": 30
+    },
+    {
+      "title": "new york",
+      "video": "/demos/new-york.mp4",
+      "poster": "/demos/new-york.jpg",
+      "clips": 35,
+      "seconds": 30
+    }
+  ]
+}
