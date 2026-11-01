@@ -86,7 +86,7 @@ class Pool:
 
     def _free(self, clip: ClipAnalysis, start: float, need: float) -> bool:
         for a, b in self.used_ranges.get(clip.name, []):
-            if start < b + 0.4 and start + need > a - 0.4:
+            if start < b + 0.25 and start + need > a - 0.25:
                 return False
         return True
 
@@ -150,8 +150,14 @@ def make_plan(
     seed: int | None = None,
     settings: dict | None = None,
     strict: bool = False,
+    max_end_k: int | None = None,
 ) -> EditPlan:
-    """strict=True: a clip is never used twice, even at a different moment (fewer cuts if clips run out)."""
+    """strict=True: a clip is never used twice, even at a different moment (fewer cuts if clips run out).
+
+    The package length is a maximum: if the clips can't fill it without repeating
+    footage, the edit ends earlier instead of holding one shot for ages.
+    """
+    call_args = dict(title=title, length=length, look=look, masks_ok=masks_ok, seed=seed, settings=settings, strict=strict)
     usable = [a for a in analyses if a.usable]
     if len(usable) < 2:
         raise ValueError("need at least 2 usable clips to make an edit")
@@ -171,6 +177,8 @@ def make_plan(
     end_k = max(8, end_k - end_k % 4)
     while end_k > 8 and drop_edit + (end_k + END_CARD_BEATS) * beat > avail + 0.5 / FPS:
         end_k -= 4
+    if max_end_k is not None:
+        end_k = max(12, min(end_k, max_end_k))
     total_k = end_k + END_CARD_BEATS
 
     vids = sorted([a for a in usable if a.info.kind == "video"], key=lambda a: -a.score)
@@ -245,8 +253,16 @@ def make_plan(
             big_bars.append(bar)
     big_at = dict(zip(big_bars, bigs))
 
-    # unique clips left for ordinary cuts (after big effects, climax inserts, the 1-beat cut after the hero and the tail)
-    budget = spare - sum(BIG[b]["shots"] for b in bigs) - 2 - 1 - 3
+    def capacity(c: ClipAnalysis) -> int:
+        """Distinct moments a clip can give (never the same footage twice): longer clips give more."""
+        if strict or c.info.kind == "photo":
+            return 1
+        cap = 3 if c.info.duration >= 12 else 2
+        return max(1, min(cap, 1 + int((c.info.duration - 0.8) // 2.0)))
+
+    # moments left for ordinary cuts (after big effects, climax inserts, the 1-beat cut after the hero and the tail)
+    budget = sum(capacity(c) for c in rest if c.info.kind == "video") + len(photos)
+    budget -= sum(BIG[b]["shots"] for b in bigs) + 2 + 1 + 3
     regular_bars = [b for b in range(n_bars) if b not in big_at and b != climax_bar]
     prev_pattern = None
     for b in range(n_bars):
@@ -267,14 +283,23 @@ def make_plan(
             continue
         bars_left = max(1, sum(1 for x in regular_bars if x >= b))
         per_bar = budget / bars_left
-        target = max(4.0, min(8.0, per_bar))
-        choices = [p for p in REGULAR if p != prev_pattern and len(PATTERNS[p]) <= target + 0.5] or ["holds", "long"]
+        target = max(3.0 if strict else 4.5, min(7.5, per_bar))
+        choices = [p for p in REGULAR if p != prev_pattern]
+
+        def cost(p: str) -> float:
+            n = len(PATTERNS[p])
+            c = abs(n - target) + rng.random() * 1.2
+            if n > target + 1.5:
+                c += 2.0  # more cuts than the footage can feed
+            if p in ("holds", "long"):
+                c += 0.9  # the house style is mostly 8th notes
+            return c
+
         if climax_bar is not None and b == climax_bar - 1:
             name = "zoomthru"
             pattern = [(1, {"punch": 1}), (1, {"creep": 0.04}), (2, {"zt": 5})]
         else:
-            scored = sorted(choices, key=lambda p: abs(len(PATTERNS[p]) - target) + rng.random() * 1.6)
-            name = scored[0]
+            name = min(choices, key=cost)
             pattern = PATTERNS[name]
         prev_pattern = name
         k = k0
@@ -312,11 +337,11 @@ def make_plan(
     plan_slots_frames = lambda s: max(1, int(round((drop_edit + s.k1 * beat_s) * FPS)) - int(round((drop_edit + s.k0 * beat_s) * FPS)))
 
     def need_seconds(s: Slot) -> float:
-        n = plan_slots_frames(s) + 6
+        n = plan_slots_frames(s) + 1
         if s.ramp:
             avg = sum(s.ramp) / 2 + 0.4
-            return n * avg / FPS + 0.15
-        return n * s.speed / FPS + 0.1
+            return n * avg / FPS + 0.12
+        return n * s.speed / FPS + 0.05
 
     def assign(s: Slot, clip: ClipAnalysis, reuse: bool = False) -> bool:
         need = need_seconds(s)
@@ -369,7 +394,7 @@ def make_plan(
         long_slot = (s.k1 - s.k0) >= 1 or s.role in ("bg", "climax", "silflash", "cutout_fg")
         wants_person = s.role in ("silflash", "cutout_fg") or s.fx.get("sil")
 
-        def fit(c: ClipAnalysis, reuse: bool) -> float:
+        def fit(c: ClipAnalysis, reuse: bool, min_gap: int = 4) -> float:
             if c.info.kind == "photo" and not (long_slot and s.role == "cut"):
                 return -1e9
             if c.info.kind == "video" and c.info.duration < need + 0.05:
@@ -384,35 +409,43 @@ def make_plan(
                 v += 0.1
             if reuse:
                 gap = idx - pool.last_used_at.get(c.name, -99)
-                if gap < 4:
-                    return -1e9
-                v -= 0.3
+                if gap < min_gap:
+                    return -1e9  # never side by side with its other moment
+                v -= 0.3 + 0.1 * len(pool.used_ranges.get(c.name, []))
             return v + rng.random() * 0.12
 
+        # Tiers: an unused clip first; then a second moment of a clip; only if the footage
+        # really runs out, a third or later moment. Footage itself is never repeated
+        # (the pool refuses overlapping time ranges) and a clip never sits next to itself.
+        tiers = [(0, 0)] if strict else [(0, 0), (2, 4), (3, 3), (4, 2)]
         placed = False
-        for reuse in ((False,) if strict else (False, True)):
-            cands = pool.fresh() if not reuse else [
-                c for c in usable
-                if c.name in pool.used_ranges and len(pool.used_ranges[c.name]) < (3 if c.info.duration >= 12 else 2)
-            ]
-            ranked = sorted(cands, key=lambda c: fit(c, reuse), reverse=True)
+        for max_uses, min_gap in tiers:
+            if max_uses == 0:
+                cands = pool.fresh()
+            else:
+                cands = [
+                    c for c in usable
+                    if c.name in pool.used_ranges
+                    and len(pool.used_ranges[c.name]) < (max(max_uses, 3) if (max_uses == 2 and c.info.duration >= 12) else max_uses)
+                ]
+            reuse = max_uses > 0
+            ranked = sorted(cands, key=lambda c: fit(c, reuse, min_gap), reverse=True)
             for c in ranked:
-                if fit(c, reuse) < -1e8:
+                if fit(c, reuse, min_gap) < -1e8:
                     break
                 if assign(s, c, reuse=reuse):
                     placed = True
                     break
             if placed:
                 break
-        if not placed and not strict and len(usable) < 8:
-            # last resort for tiny inputs only: longest clip, any free moment.
-            # Otherwise an empty slot just extends the cut before it (fewer cuts beats repeating clips).
-            for c in sorted(usable, key=lambda c: -c.info.duration):
-                if assign(s, c, reuse=True):
-                    placed = True
-                    break
         if placed and s.shot:
             prev_sig = (prev_sig + [pool_clip(usable, s.shot.clip).signature])[-2:]
+
+    # ---- footage ran out? end the edit earlier rather than hold one shot for ages ------
+    empty_beats = sum(sl.k1 - sl.k0 for sl in slots if sl.shot is None and sl.parent is None and sl.kind == "shot")
+    if empty_beats > 2 and end_k > 12:
+        shorter = int(end_k - max(4, 4 * math.ceil((empty_beats - 1) / 4)))
+        return make_plan(analyses, song, max_end_k=max(12, shorter), **call_args)
 
     # ---- build segments -------------------------------------------------------------
     segments: list[Segment] = []

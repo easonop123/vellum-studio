@@ -1,0 +1,6 @@
+numpy>=1.26
+pillow>=10.2
+onnxruntime>=1.17
+pillow-heif>=0.16
+PySide6-Essentials>=6.6
+pytest>=8
