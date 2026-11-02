@@ -38,6 +38,7 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 3. Click **Add New…**, then **Project**.
 4. Next to **vellum-studio**, click **Import**.
    - Not in the list? Click **Adjust GitHub App Permissions**, tick **vellum-studio**, save, and come back.
+   - Does the next page list more than one app (one says **Next.js**)? Click **Import single project** next to the **Next.js** one. The other is the Mac app, which doesn't go on Vercel.
 5. Open the **Environment Variables** section and add these three, one at a time (type the name in **Key**, paste the value in **Value**, then click **Add More** for the next one):
 
    | Key | Value |
