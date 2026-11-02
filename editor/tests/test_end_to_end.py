@@ -134,7 +134,7 @@ def test_cuts_happen_in_the_video_where_planned(edit):
         f = plan.F(b.k0)
         if a.kind != "shot" or b.kind != "shot" or b.fx.get("continues"):
             continue
-        noisy = ("whip", "flash", "dark", "flicker", "glitch", "hero", "boom", "ending")
+        noisy = ("whip", "flash", "dark", "flicker", "glitch", "hero", "boom", "ending", "slit", "shrink", "cpop")
         if any(b.fx.get(k) for k in noisy) or any(a.fx.get(k) for k in ("zt", "prebloom", "flicker", "glitch", "dark")):
             continue
         if any(abs(f - s) <= 3 for s in specials):

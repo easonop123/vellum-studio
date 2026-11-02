@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 
 from .analyze import ClipAnalysis, similarity
 from .audio import SongAnalysis
-from .plan import FPS, H, W, EditPlan, Segment, Shot
+from .plan import FPS, PEEK, H, W, EditPlan, Segment, Shot, peek_frames
 
 LENGTHS = {"short": 30.0, "long": 60.0}
 END_CARD_BEATS = 4
@@ -36,8 +36,8 @@ PATTERNS: dict[str, list[tuple[float, dict]]] = {
     "mixed_b": [(0.5, {"punch": 1}), (0.5, {"whip": 1}), (1, {"creep": 0.05}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1, "dark": 1}), (1, {"punch": 1})],
     "burst": [(1, {"creep": 0.04}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (1, {"whip": 1}), (1, {"punch": 1})],
     "flash": [(1, {"punch": 1, "flash": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "glitch": 1}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"creep": 0.04})],
-    "holds": [(1, {"creep": 0.04}), (1, {"punch": 1}), (1, {"whip": 1}), (1, {"creep": 0.03})],
-    "long": [(2, {"creep": 0.06, "leak": 1}), (1, {"punch": 1}), (1, {"whip": 1})],
+    "holds": [(1, {"creep": 0.04}), (1, {"slit": 1}), (1, {"whip": 1}), (1, {"creep": 0.03, "cpop": 1})],
+    "long": [(2, {"creep": 0.06, "leak": 1, "shrink": 1}), (1, {"punch": 1}), (1, {"whip": 1})],
 }
 REGULAR = ["eighths", "mixed_a", "mixed_b", "burst", "flash", "holds", "long"]
 
@@ -69,6 +69,7 @@ class Slot:
     at: float = 0.0
     shot: Shot | None = None
     continues: int | None = None  # continue the clip of this slot (no new footage)
+    peek: int = 0  # frames past the end still on screen (the next cut slits or flies in over it)
 
 
 @dataclass
@@ -94,7 +95,8 @@ class Pool:
         """Grow the range that starts at `start` to `new_end`, if no other use of the clip is in the way."""
         ranges = self.used_ranges.get(clip.name, [])
         own = min(ranges, key=lambda r: abs(r[0] - start), default=None)
-        if own is None or abs(own[0] - start) > 1e-6 or new_end > clip.info.duration - 0.02:
+        # shots store their start rounded to the millisecond; uses of a clip are always >0.25 s apart
+        if own is None or abs(own[0] - start) > 1e-3 or new_end > clip.info.duration - 0.02:
             return False
         for a, b in ranges:
             if (a, b) is own or (a, b) == own:
@@ -345,13 +347,27 @@ def make_plan(
             target.fx["sil"] = 5
             target.big = "silflash"
 
+    # The slit reveal and the polaroid fly-off keep the previous cut playing on screen for a
+    # few frames, so it has to be a plain cut, and it reserves that much more of its clip.
+    mains = [s for s in slots if s.parent is None]
+    for a, b in zip(mains, mains[1:]):
+        for key, frames in PEEK.items():
+            if not b.fx.get(key):
+                continue
+            plain = (a.role == "cut" and a.kind == "shot" and a.big is None and a.continues is None
+                     and not a.ramp and not a.fx.get("zt") and abs(a.k1 - b.k0) < 1e-9)
+            if plain:
+                a.peek = max(a.peek, frames)
+            else:
+                b.fx.pop(key)
+
     # ---- assign footage ---------------------------------------------------------------
     pool = Pool(usable, rng)
     beat_s = beat
     plan_slots_frames = lambda s: max(1, int(round((drop_edit + s.k1 * beat_s) * FPS)) - int(round((drop_edit + s.k0 * beat_s) * FPS)))
 
     def need_seconds(s: Slot) -> float:
-        n = plan_slots_frames(s) + 1
+        n = plan_slots_frames(s) + 1 + s.peek
         if s.ramp:
             avg = sum(s.ramp) / 2 + 0.4
             return n * avg / FPS + 0.12
@@ -505,6 +521,25 @@ def make_plan(
             continue
         cleaned.append(seg)
     segments = cleaned
+
+    # A cut that a slit or polaroid plays on over must own those extra frames too (a stretched
+    # cut may now sit in front of one): reserve them, or drop the transition if they're taken.
+    for a, b in zip(segments, segments[1:]):
+        peek = peek_frames(b)
+        if not peek:
+            continue
+        sh = a.shot
+        ok = (a.kind == "shot" and sh is not None and not sh.ramp
+              and not any(a.fx.get(key) for key in ("raw", "hero", "boom", "zt", "sil", "spaced", "continues", "ending")))
+        if ok and sh is not None:
+            clip = pool_clip(usable, sh.clip)
+            if clip.info.kind == "video":
+                n = nframes(a.k0, a.k1)
+                own_end = sh.ss + (n + 1) * sh.speed / FPS + 0.05
+                ok = pool.extend(clip, sh.ss, own_end, sh.ss + (n + 1 + peek) * sh.speed / FPS + 0.05)
+        if not ok:
+            for key in PEEK:
+                b.fx.pop(key, None)
 
     # flashes and blooms on structural beats
     whites = [0.0]

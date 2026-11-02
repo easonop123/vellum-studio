@@ -7,9 +7,9 @@ Updated as I go. Newest status first.
 | Part | Status |
 | --- | --- |
 | 1. Website (showcase, order form, Stripe test payments, admin) | **Works.** Tests pass here and on GitHub. Needs your Vercel + Stripe setup (YOUR-STEPS.md, Part A) |
-| 2. Mac app engine | **Works.** Makes complete edits; 69 tests pass on Linux |
-| 3. Mac `.dmg` built by GitHub Actions | Builds on every push. Being finalised: see "Mac build" below |
-| 4. Polish | Partly done: more effects added, looks in place. More below |
+| 2. Mac app engine | **Works.** Makes complete edits; 73 tests pass on Linux and on GitHub's Mac |
+| 3. Mac `.dmg` built by GitHub Actions | **Works.** Every push builds the app on GitHub's Apple Silicon Mac, checks it makes an edit, and makes the `.dmg`. Releases start once `main` has the code (YOUR-STEPS A1) |
+| 4. Polish | Most effects from your v4–v8 scripts and four looks are in. Fine-tuning needs your first real edit |
 
 ## Mac app: what works
 
@@ -26,7 +26,7 @@ Updated as I go. Newest status first.
   - typed ending with the letterbox closing, then the VELLUM / STUDIO end card.
   - The vertical uses your exact layout and TikTok Sans text.
 - **Effects:**
-  - **Small:** punch-in, zoom blur, whip blur, shake + RGB split, white and black flash, light leak, glitch, flicker, typed text, flickering red corner labels, B&W flash, red border, zoom-through speed ramp.
+  - **Small:** punch-in, zoom blur, whip blur, shake + RGB split, white and black flash, light leak, glitch, flicker, typed text, flickering red corner labels, B&W flash, red border, zoom-through speed ramp, colour pop (v8), slit reveal (v6), polaroid fly-off (v7/v8).
   - **Big (max 2):** 3×3 grid, triple frame + sticker, film strip, giant letters, spaced glowing title, cut-out sticker, white silhouette flash.
 - **Looks:** Darkroom (your reference grade), Warm Film, Neon Night, Clean. Night street-light shots get the orange pulled down.
 - **Sound design:**
@@ -46,11 +46,12 @@ Updated as I go. Newest status first.
   - Clip analysis is cached, so re-renders after a nudge are quick.
 - **Disk and speed:** only the frames each shot needs are extracted, at most 1920 wide. A 30 s edit uses about 0.7 GB of temp space, deleted afterwards. All CPU cores are used, with a progress bar and time left.
   - Full 1080p 30 s edit: about 4 minutes on this 4-core cloud machine. Expect roughly 1.5–2 minutes on an Apple Silicon Mac.
-- **Tests (69):**
+- **Tests (73):**
   - beat and drop accuracy at five tempos;
   - probing (rotation, HDR, fps, photos, corrupt files) and junk rejection;
   - planner rules (structure, the grid, never repeated footage, never side by side, strict mode, ≤ 2 big effects);
   - title readability against fake people, and the sound bank;
+  - the slit, polaroid and colour pop drawn from known test frames;
   - **end-to-end low-res renders**, checking:
     - cuts on the beat against the real song, and visible in the rendered video on the planned frame ±1;
     - no clip repeated, ≤ 2 big effects, the title readable and on screen;
@@ -69,6 +70,8 @@ Updated as I go. Newest status first.
 5. Wraps the app in `Vellum-Editor.dmg`.
 
 On `main`, the `.dmg` is attached to a GitHub Release.
+
+**Latest check (2 Nov):** every step passed. The tests passed on Linux and macOS, the built app rendered a 46-cut edit by itself in 12.5 s, and the `.dmg` came out at 281 MB. Most of that is the person-finding model and the video tools inside it. The release step only runs on `main`, so it starts after YOUR-STEPS A1.
 
 ## Website: what works
 

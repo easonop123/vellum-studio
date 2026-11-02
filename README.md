@@ -21,4 +21,19 @@ npm run build && npm run test:e2e   # Playwright smoke tests
 
 Environment variables (all optional locally): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSWORD`, `CRON_SECRET`, `BLOB_READ_WRITE_TOKEN` or `BLOB_STORE_ID` (added by Vercel), `BLOB_ACCESS` (`private` default).
 
-Placeholder demo videos are generated with `python3 editor/tools/make_site_placeholders.py`.
+The placeholder demo videos in `public/demos/` are made by the editor itself: `cd editor && python tools/make_engine_demos.py`.
+
+### Vellum Editor (Mac app)
+
+```bash
+cd editor
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python run_app.py                       # the window
+.venv/bin/python -m vellum_editor.cli make --clips ~/Desktop/Tokyo --song song.mp3 --title Tokyo
+.venv/bin/python -m vellum_editor.cli song song.mp3   # just the BPM and drop
+.venv/bin/python -m pytest -q                    # 73 tests, including end-to-end renders
+```
+
+Needs `ffmpeg` on PATH when run from source. The person-mask model (`u2net_human_seg.onnx`) goes in `editor/vellum_editor/assets/models/`. Without it, titles are placed without masks.
+
+The `.dmg` is built by `.github/workflows/editor.yml` on GitHub's Apple Silicon runner.

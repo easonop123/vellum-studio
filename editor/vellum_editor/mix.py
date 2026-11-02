@@ -110,6 +110,12 @@ def cues(plan: EditPlan) -> list[Cue]:
                 add("click", f0 + j, -12)
         if fx.get("glitch"):
             add("glitch", f0, -9)
+        if fx.get("cpop"):
+            add("click_loud", f0 + 2, -7)  # when the colour drains out
+        if fx.get("slit"):
+            add("whoosh", f0 - 3, -8)
+        if fx.get("shrink"):
+            add("whoosh", f0, -9)
         if fx.get("zt"):
             add("whoosh", f1 - 5, -6)
         if fx.get("sil"):

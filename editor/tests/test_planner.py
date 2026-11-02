@@ -5,6 +5,7 @@ import pytest
 
 from vellum_editor.analyze import analyse_folder
 from vellum_editor.audio import analyze_song
+from vellum_editor.plan import PEEK, peek_frames
 from vellum_editor.planner import make_plan
 
 
@@ -21,12 +22,14 @@ def song(media):
 def footage_overlaps(plan):
     """(clip, a, b) ranges actually used; returns pairs that overlap."""
     ranges = defaultdict(list)
-    for seg in plan.segments:
+    segs = plan.segments
+    for idx, seg in enumerate(segs):
         f0, f1 = plan.frames_of(seg)
+        after = segs[idx + 1] if idx + 1 < len(segs) else None
         for sh in seg.all_shots():
             if seg.fx.get("continues") and sh is seg.shot:
                 continue
-            frames = f1 - f0
+            frames = f1 - f0 + (peek_frames(after) if sh is seg.shot else 0)  # a slit/polaroid plays on over it
             speed = max(sh.ramp) if sh.ramp else sh.speed
             ranges[sh.clip].append((sh.ss, sh.ss + frames * speed / 24))
     bad = []
@@ -110,3 +113,17 @@ def test_plan_round_trips_through_json(analyses, song, tmp_path):
     again = EditPlan.load(tmp_path / "p.json")
     assert again.total_frames == plan.total_frames
     assert [s.to_dict() for s in again.segments] == [s.to_dict() for s in plan.segments]
+
+
+def test_slit_and_polaroid_only_follow_plain_cuts_with_footage_to_spare(analyses, song):
+    """The slit reveal and polaroid fly-off show the previous cut playing on: that footage is reserved too."""
+    seen = 0
+    for seed in range(12):
+        plan = make_plan(analyses, song, title="Tokyo", length="long", masks_ok=False, seed=seed)
+        assert footage_overlaps(plan) == []  # counts the extra frames on screen
+        for a, b in zip(plan.segments, plan.segments[1:]):
+            if any(b.fx.get(key) for key in PEEK):
+                seen += 1
+                assert a.kind == "shot" and a.shot and not a.shot.ramp
+                assert not any(a.fx.get(key) for key in ("raw", "hero", "boom", "zt", "sil", "spaced", "ending"))
+    assert seen > 0  # the house patterns really use them

@@ -11,12 +11,12 @@ from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from . import fx
 from .extract import EXTRA_FRAMES
 from .looks import get_look
-from .plan import FPS, EditPlan, Segment, Shot
+from .plan import FPS, PEEK, EditPlan, Segment, Shot
 from .text import TitleLayout, anton, center_text, draw_title, grotesk, mono, tiktok
 
 
@@ -46,6 +46,7 @@ class Renderer:
         self._files: dict[str, list[Path]] = {}
         self._cache: OrderedDict[tuple[str, int], Image.Image] = OrderedDict()
         self._mask_cache: OrderedDict[tuple[str, int], Image.Image | None] = OrderedDict()
+        self._pop_hues: dict[str, int] = {}
         self.whites = {plan.F(k) for k in plan.whites}
         self.blooms = [plan.F(k) for k in plan.blooms]
         self.drop = plan.F(0)
@@ -131,6 +132,7 @@ class Renderer:
         f0, f1 = self.ranges[k]
         i, n = f - f0, f1 - f0
         nxt = self.segs[k + 1] if k + 1 < len(self.segs) else None
+        prev = self.segs[k - 1] if k > 0 else None
         S = self.S
 
         if s.kind == "grid9":
@@ -156,6 +158,8 @@ class Renderer:
                 im = self.hero_title(im, s, i)
             if s.fx.get("bw") and i < int(s.fx["bw"]):
                 im = fx.bw(im)
+            if s.fx.get("cpop") and i >= 2:
+                im = self.cpop(im, s)
             if s.fx.get("rgb") and i < 3:
                 im = fx.rgbsplit(im, max(1, int(14 * S)))
             if s.fx.get("sil") and i >= n - int(s.fx["sil"]):
@@ -164,6 +168,10 @@ class Renderer:
                 im = self.spaced(im, i, n)
 
         # transitions
+        if prev is not None and s.fx.get("slit") and i < PEEK["slit"]:
+            im = self.slit_in(im, self.peek(k - 1, i), i)
+        elif prev is not None and s.fx.get("shrink") and i < PEEK["shrink"]:
+            im = self.shrink_over(im, self.peek(k - 1, i), i)
         if s.fx.get("whip") and i < 3:
             im = fx.mblur(im, [700, 380, 140][i] * S)
         if nxt and nxt.fx.get("whip") and i >= n - 3:
@@ -220,6 +228,75 @@ class Renderer:
         return len(self.segs) - 1
 
     # ------------------------------------------------------------------ pieces
+    def peek(self, kp: int, i: int) -> Image.Image:
+        """Segment kp's shot carrying on i frames past its end (the planner reserved that footage)."""
+        prev = self.segs[kp]
+        if prev.kind != "shot" or prev.shot is None:
+            return Image.new("RGB", (self.W, self.H), (8, 8, 8))
+        f0, f1 = self.ranges[kp]
+        return self.base(prev, f1 - f0 + i)
+
+    def slit_in(self, cur: Image.Image, prev: Image.Image, i: int) -> Image.Image:
+        """Slit reveal (v6): the new shot opens from a centre slit with thin white edges."""
+        t = fx.ease((i + 1) / 5)
+        w = int(self.W * t)
+        x = (self.W - w) // 2
+        out = prev.copy()
+        if w > 0:
+            out.paste(cur.crop((x, 0, x + w, self.H)), (x, 0))
+            e = max(1, round(3 * self.S))
+            d = ImageDraw.Draw(out)
+            d.rectangle([x - e, 0, x, self.H], fill=(255, 255, 255))
+            d.rectangle([x + w, 0, x + w + e, self.H], fill=(255, 255, 255))
+        return out
+
+    def shrink_over(self, im: Image.Image, prev: Image.Image, i: int, n: int = PEEK["shrink"]) -> Image.Image:
+        """Polaroid fly-off (v7/v8): the last shot shrinks into a white-bordered print and flies off right."""
+        S = self.S
+        t = fx.ease((i + 1) / n)
+        sc = 1 - 0.62 * t
+        w, h = max(2, int(self.W * sc)), max(2, int(self.H * sc))
+        b = max(2, round(10 * S))
+        frame = Image.new("RGB", (w + 2 * b, h + 2 * b), (250, 248, 244))
+        frame.paste(prev.resize((w, h), Image.BILINEAR), (b, b))
+        x = int((self.W - frame.size[0]) / 2 + t * t * self.W * 0.9)
+        y = int((self.H - frame.size[1]) / 2)
+        out = im.copy()
+        out.paste((0, 0, 0), (x + round(12 * S), y + round(16 * S)), Image.new("L", frame.size, 140))  # drop shadow
+        out.paste(frame, (x, y))
+        return out
+
+    def pop_hue(self, s: Segment) -> int:
+        """The colour a colour pop keeps: the shot's strongest saturated hue that isn't the whole frame.
+        v8 popped the yellow of New York taxis; that yellow is the fallback."""
+        key = s.id or f"{s.k0}"
+        if key not in self._pop_hues:
+            hsv = np.asarray(self.base(s, 2).convert("HSV"))
+            strong = (hsv[..., 1] > 110) & (hsv[..., 2] > 60)
+            hist = np.bincount(hsv[..., 0][strong].ravel(), minlength=256).astype(np.float64)
+            window = np.convolve(np.concatenate([hist[-12:], hist, hist[:12]]), np.ones(25), "valid")  # +-12, wraps
+            hue = 34
+            for c in np.argsort(-window):
+                share = window[c] / hsv[..., 0].size
+                if share < 0.004:
+                    break
+                if share <= 0.4:
+                    hue = int(c)
+                    break
+            self._pop_hues[key] = hue
+        return self._pop_hues[key]
+
+    def cpop(self, im: Image.Image, s: Segment) -> Image.Image:
+        """Colour pop (v8): black and white with punchy contrast, except one colour."""
+        hue = self.pop_hue(s)
+        hsv = np.asarray(im.convert("HSV"))
+        dh = np.abs(((hsv[..., 0].astype(np.int16) - hue + 128) % 256) - 128)
+        keep = Image.fromarray(((dh < 12) & (hsv[..., 1] > 110)).astype(np.uint8) * 255)
+        keep = keep.filter(ImageFilter.GaussianBlur(max(1.0, 2 * self.S)))
+        out = ImageOps.autocontrast(ImageOps.grayscale(im), cutoff=1).convert("RGB")
+        out.paste(im, (0, 0), keep)
+        return out
+
     def raw_overlay(self, im: Image.Image, s: Segment, i: int) -> Image.Image:
         """Camera-roll look: the file name bottom left, the clip's length top right."""
         d = ImageDraw.Draw(im)

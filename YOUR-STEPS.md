@@ -143,7 +143,7 @@ Your Instagram link is a placeholder: open **content/site.json**, click the penc
 
 ## Part E: the Mac app (Vellum Editor)
 
-GitHub builds the app for you every time `main` changes (after A1). It takes about 30 minutes.
+GitHub builds the app for you every time `main` changes (after A1). It takes about 10 minutes.
 
 ### E1. Download it
 
