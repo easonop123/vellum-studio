@@ -1,0 +1,15 @@
+{
+  "currency": "nzd",
+  "packages": {
+    "short": { "label": "short", "maxSeconds": 30, "priceCents": 500 },
+    "long": { "label": "long", "maxSeconds": 60, "priceCents": 1000 }
+  },
+  "deliveryHours": 48,
+  "freeRevisions": 1,
+  "links": {
+    "tiktok": { "handle": "@vellumstudio.edits", "url": "https://www.tiktok.com/@vellumstudio.edits" },
+    "youtube": { "handle": "@vellumstudioedits", "url": "https://www.youtube.com/@vellumstudioedits" },
+    "instagram": { "handle": "instagram", "url": "https://www.instagram.com/" },
+    "email": "vellumstudio.edits@gmail.com"
+  }
+}

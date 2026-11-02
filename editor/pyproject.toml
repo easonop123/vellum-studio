@@ -1,0 +1,21 @@
+[project]
+name = "vellum-editor"
+version = "0.1.0"
+description = "Makes beat-synced edits in the Vellum Studio house style"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10.2",
+  "onnxruntime>=1.17",
+  "pillow-heif>=0.16",
+  "PySide6-Essentials>=6.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+build = ["pyinstaller>=6.6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["slow: renders a real (low resolution) edit end to end"]
