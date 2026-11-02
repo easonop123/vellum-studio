@@ -15,22 +15,22 @@
       "title": "tokyo",
       "video": "/demos/tokyo.mp4",
       "poster": "/demos/tokyo.jpg",
-      "clips": 24,
-      "seconds": 30
+      "clips": 30,
+      "seconds": 19
     },
     {
       "title": "italy",
       "video": "/demos/italy.mp4",
       "poster": "/demos/italy.jpg",
-      "clips": 31,
-      "seconds": 30
+      "clips": 30,
+      "seconds": 29
     },
     {
       "title": "new york",
       "video": "/demos/new-york.mp4",
       "poster": "/demos/new-york.jpg",
-      "clips": 35,
-      "seconds": 30
+      "clips": 30,
+      "seconds": 29
     }
   ]
 }
