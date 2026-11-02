@@ -38,7 +38,7 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 3. Click **Add New…**, then **Project**.
 4. Next to **vellum-studio**, click **Import**.
    - Not in the list? Click **Adjust GitHub App Permissions**, tick **vellum-studio**, save, and come back.
-5. Open the **Environment Variables** section and add these three, one at a time (type the name in **Key**, paste the value in **Value**, click **Add**):
+5. Open the **Environment Variables** section and add these three, one at a time (type the name in **Key**, paste the value in **Value**, then click **Add More** for the next one):
 
    | Key | Value |
    | --- | --- |
@@ -46,8 +46,9 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
    | `ADMIN_PASSWORD` | a password you make up. It opens your orders page |
    | `CRON_SECRET` | any 30+ random letters and numbers (mash the keyboard) |
 
-6. Click **Deploy** and wait about two minutes.
-7. Click **Continue to Dashboard**. Your site address is shown under **Domains** (something like `vellum-studio-abc.vercel.app`). Write it down.
+6. Leave the **Stripe** box under **Optional Integrations** alone (it connects Stripe a different way; your key is already in).
+7. Click **Deploy** and wait about two minutes. Greyed out? One variable row is half filled in: give it a name and a value, or remove it.
+8. Click **Continue to Dashboard**. Your site address is shown under **Domains** (something like `vellum-studio-abc.vercel.app`). Write it down.
 
 ### A4. Add storage for uploaded clips
 
