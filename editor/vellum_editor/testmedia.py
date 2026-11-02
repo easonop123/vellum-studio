@@ -139,10 +139,13 @@ def make_test_set(folder: Path, *, count: int = 26) -> dict:
     base.unlink()
     made["rotated"].append("IMG_9001.MOV")
     # HDR-tagged (HLG, BT.2020, 10-bit), like an iPhone HDR clip
-    make_clip(folder / "IMG_9002.MOV", seconds=3.0, fps=30, pattern=0, hue=90,
-              codec_args=["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error",
-                          "-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
-                          "-colorspace", "bt2020nc", "-tag:v", "hvc1"])
+    hdr_tags = ["-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc"]
+    try:
+        make_clip(folder / "IMG_9002.MOV", seconds=3.0, fps=30, pattern=0, hue=90,
+                  codec_args=["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", *hdr_tags, "-tag:v", "hvc1"])
+    except Exception:  # ffmpeg built without x265: 10-bit H.264 carries the same HDR tags
+        make_clip(folder / "IMG_9002.MOV", seconds=3.0, fps=30, pattern=0, hue=90,
+                  codec_args=["-c:v", "libx264", "-preset", "ultrafast", "-profile:v", "high10", *hdr_tags])
     made["hdr"].append("IMG_9002.MOV")
     # a black clip (lens cap) and a blurry one
     run(["-f", "lavfi", "-i", "color=c=black:size=320x180:rate=30", "-t", "3", "-c:v", "libx264", "-preset", "ultrafast",

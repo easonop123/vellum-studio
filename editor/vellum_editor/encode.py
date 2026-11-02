@@ -27,6 +27,8 @@ def _encoder(path: str, w: int, h: int, crf: int, preset: str) -> subprocess.Pop
         ffmpeg_path(), "-hide_banner", "-nostdin", "-v", "error", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(FPS), "-i", "-",
         "-c:v", "libx264", "-preset", preset, "-crf", str(crf), "-pix_fmt", "yuv420p",
+        # Capped CRF: full quality, but never heavier than social apps can use (grain is expensive to encode).
+        "-maxrate", "16M", "-bufsize", "32M",
         "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
         "-threads", "2", "-an", path,
     ]

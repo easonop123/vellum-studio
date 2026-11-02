@@ -163,7 +163,8 @@ class Finisher:
             gw, gh = max(2, w // 2), max(2, h // 2)
             for _ in range(6):
                 g = (rng.normal(0, 1, (gh, gw)) * grain + 128).clip(0, 255).astype(np.uint8)
-                self.grain.append((np.asarray(Image.fromarray(g).resize((w, h), Image.BILINEAR), np.float32) - 128))
+                full = np.asarray(Image.fromarray(g).resize((w, h), Image.BILINEAR), np.int16) - 128
+                self.grain.append(full.clip(-127, 127).astype(np.int8))  # 2 MB each at 1080p instead of 8
         self.w, self.h = w, h
 
     def __call__(self, im: Image.Image, f: int) -> Image.Image:

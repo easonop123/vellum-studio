@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Python app, reference scripts and local data are not part of the website
+    "editor/**",
+    "reference/**",
+    ".data/**",
+    ".data-test/**",
   ]),
 ]);
 

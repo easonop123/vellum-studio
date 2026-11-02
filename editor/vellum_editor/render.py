@@ -90,7 +90,7 @@ class Renderer:
             if im.size != (bw, bh):
                 im = im.resize((bw, bh), Image.BILINEAR)
             self._cache[key] = im
-            if len(self._cache) > 64:
+            if len(self._cache) > 20:  # ~120 MB per worker at full size
                 self._cache.popitem(last=False)
         else:
             self._cache.move_to_end(key)
@@ -101,7 +101,7 @@ class Renderer:
         if key not in self._mask_cache:
             p = self.work / "masks" / shot.id / f"{i:04d}.png"
             self._mask_cache[key] = Image.open(p).convert("L") if p.exists() else None
-            if len(self._mask_cache) > 64:
+            if len(self._mask_cache) > 24:
                 self._mask_cache.popitem(last=False)
         m = self._mask_cache[key]
         if m is None:
