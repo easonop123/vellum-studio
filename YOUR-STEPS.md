@@ -141,6 +141,57 @@ Your Instagram link is a placeholder: open **content/site.json**, click the penc
 
 ---
 
+## Part E: the Mac app (Vellum Editor)
+
+GitHub builds the app for you every time `main` changes (after A1). It takes about 30 minutes.
+
+### E1. Download it
+
+1. Open **github.com/easonop123/vellum-studio**.
+2. On the right, click **Releases**.
+3. Under the newest **Vellum Editor** release, click **Vellum-Editor.dmg**. It downloads to your Downloads folder.
+
+### E2. Install it
+
+1. Double-click **Vellum-Editor.dmg** in Downloads.
+2. In the window that opens, drag **Vellum Editor** onto the **Applications** folder.
+3. Close the window.
+
+### E3. Open it the first time
+
+The app isn't signed with a paid Apple developer account, so macOS asks once.
+
+1. Open **Finder**, then **Applications**.
+2. Right-click **Vellum Editor** and choose **Open**.
+3. Click **Open** in the warning.
+4. No **Open** button? Click **Done**, open **System Settings**, then **Privacy & Security**, scroll down to the message about Vellum Editor, click **Open Anyway**, and type your Mac password.
+5. From now on it opens with a normal double-click.
+
+### E4. Make a test edit
+
+1. Put 10–40 clips in one folder (for example a folder called `Tokyo` on your Desktop).
+2. Drag that folder onto **Drop the folder of clips here**.
+3. Drag the song file (mp3, m4a or wav) onto **Drop the song here**. After a few seconds you'll see the BPM, the drop time, and a waveform with a red line on the drop.
+4. Click **▶ hear the drop**. If the red line isn't on the big moment, move it with **◀ beat** / **beat ▶** (or a whole **bar**), then listen again. If the BPM looks half or double, click **×2** or **÷2**.
+5. Type the title (the city or trip name). Pick **Short** or **Long** and a **Look**.
+6. Click **Make edit**. A short edit takes about 2–4 minutes; the bar shows the time left.
+7. Click **Open folder**. Next to your clips there's a new folder **Vellum Edit - (title)** with:
+   - `(title) - vertical (post this).mp4`: post this one and add the song in TikTok or Instagram.
+   - `(title) - vertical (preview with song).mp4`: send this to the customer so they hear it with the song.
+   - the same two in 16x9, for YouTube.
+   - `review.html`: every cut, every clip used, and every clip thrown out (and why).
+
+### E5. Extras
+
+- **Hook versions:** type two short lines in HOOK 2 (and 3, 4 if you want) and click **Make hook versions**. You get extra vertical files with that text over the start.
+- **Swap a shot:** click **Swap a shot…**, pick the shot number on the left (the numbers match `review.html`), pick a clip on the right, and click **Swap and re-render**.
+- **Settings:**
+  - **Sound effects folder:** use your own sounds. Name the files `click`, `click_loud`, `shutter1`–`shutter4`, `riser`, `whoosh`, `impact`, `flash`, `ring` and `glitch` (any of .wav, .mp3, .aif).
+  - **LUT:** for DJI D-Log M footage. Download DJI's Rec.709 `.cube` LUT for that drone, choose it, and set **Apply the LUT to** **DJI clips only**.
+- **Never reuse a clip:** with few clips, the app reuses a different moment of a long clip to keep the cuts fast (never the same footage, never side by side). Tick this box if you'd rather have fewer cuts.
+
+---
+
 ## If something breaks
 
 - **Order page says "storage isn't connected yet"**: do A4, including the redeploy.
@@ -149,3 +200,5 @@ Your Instagram link is a placeholder: open **content/site.json**, click the penc
 - **Order paid but shows "not paid" in admin**: check the webhook (A5). Stripe's endpoint page lists each delivery and whether it worked. The thanks page also checks with Stripe directly, so this is rare.
 - **Admin page says "set an ADMIN_PASSWORD"**: add it in **Settings → Environment Variables**, then redeploy.
 - **Storage filling up**: free Blob storage is 1 GB. After delivering an order, click **delete clips** on it. Clips are deleted automatically 30 days after upload anyway (3 days if the order was never paid). For big orders, ask customers to use the link box instead of uploading.
+- **Mac app says something went wrong**: the message names the problem. Full details are saved in `vellum-editor.log`: in Finder press **Shift+Cmd+G**, type `~/Library/Application Support/Vellum Editor` and press Return. Send me that file.
+- **No release on GitHub yet**: open the repo's **Actions** tab, then **Vellum Editor (Mac app)**. A green tick means it's done; a red cross means the build failed (send me the link).

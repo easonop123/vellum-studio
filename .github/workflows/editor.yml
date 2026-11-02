@@ -40,7 +40,7 @@ jobs:
           path: ${{ env.MODEL_PATH }}
           key: u2net-human-seg-v1
       - name: Download the person model if needed
-        run: test -f "$MODEL_PATH" || curl -fsSL --retry 3 -o "$MODEL_PATH" "$MODEL_URL"
+        run: test -f "$MODEL_PATH" || curl -fsSL --retry 3 --create-dirs -o "$MODEL_PATH" "$MODEL_URL"
       - name: Install
         run: pip install -r editor/requirements.txt
       - name: Tests
@@ -73,7 +73,7 @@ jobs:
           path: ${{ env.MODEL_PATH }}
           key: u2net-human-seg-v1
       - name: Download the person model if needed
-        run: test -f "$MODEL_PATH" || curl -fsSL --retry 3 -o "$MODEL_PATH" "$MODEL_URL"
+        run: test -f "$MODEL_PATH" || curl -fsSL --retry 3 --create-dirs -o "$MODEL_PATH" "$MODEL_URL"
       - name: Install
         run: pip install -r editor/requirements.txt "pyinstaller>=6.6"
       - name: Version
