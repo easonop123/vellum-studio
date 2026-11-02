@@ -170,8 +170,14 @@ class Renderer:
         # transitions
         if prev is not None and s.fx.get("slit") and i < PEEK["slit"]:
             im = self.slit_in(im, self.peek(k - 1, i), i)
+        elif prev is not None and s.fx.get("strips") and i < PEEK["strips"]:
+            im = self.strips_in(im, self.peek(k - 1, i), i)
         elif prev is not None and s.fx.get("shrink") and i < PEEK["shrink"]:
             im = self.shrink_over(im, self.peek(k - 1, i), i)
+        if s.fx.get("burn") and i < 6:  # light-leak burn across the cut (v4/v6)
+            im = fx.burn(im, 0.45 + i * 0.1)
+        if nxt and nxt.fx.get("burn") and i >= n - 4:
+            im = fx.burn(im, (i - (n - 4)) * 0.12 + 0.05)
         if s.fx.get("whip") and i < 3:
             im = fx.mblur(im, [700, 380, 140][i] * S)
         if nxt and nxt.fx.get("whip") and i >= n - 3:
@@ -248,6 +254,19 @@ class Renderer:
             d = ImageDraw.Draw(out)
             d.rectangle([x - e, 0, x, self.H], fill=(255, 255, 255))
             d.rectangle([x + w, 0, x + w + e, self.H], fill=(255, 255, 255))
+        return out
+
+    def strips_in(self, cur: Image.Image, prev: Image.Image, i: int) -> Image.Image:
+        """Sliding strips (v6): the new shot comes in as three bands from alternate sides."""
+        out = prev.copy()
+        bh = self.H // 3
+        for j in range(3):
+            t = fx.ease((i - j * 0.8 + 1) / 4)
+            if t <= 0:
+                continue
+            y0, y1 = j * bh, (self.H if j == 2 else (j + 1) * bh)
+            dx = int((1 - t) * self.W * (1 if j % 2 == 0 else -1))
+            out.paste(cur.crop((0, y0, self.W, y1)), (dx, y0))
         return out
 
     def shrink_over(self, im: Image.Image, prev: Image.Image, i: int, n: int = PEEK["shrink"]) -> Image.Image:

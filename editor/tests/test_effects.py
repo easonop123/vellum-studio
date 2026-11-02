@@ -21,29 +21,35 @@ def _frame(name, w, h):
     return Image.new("RGB", (w, h), COLOURS[name])
 
 
-@pytest.fixture(scope="module")
-def renderer(tmp_path_factory):
-    work = tmp_path_factory.mktemp("fxwork")
-    # beat 0.5 s, drop 2 s in: frame(k) = 48 + 12k
-    segs = [
-        Segment(-4, 0, shot=Shot("A.mov", 0.0)),
-        Segment(0, 2, shot=Shot("B.mov", 0.0)),
-        Segment(2, 4, shot=Shot("C.mov", 0.0), fx={"slit": 1}),
-        Segment(4, 6, shot=Shot("D.mov", 0.0), fx={"shrink": 1}),
-        Segment(6, 8, shot=Shot("E.mov", 0.0), fx={"cpop": 1}),
-    ]
-    clips = {f"{n}.mov": {"info": {"duration": 10.0}} for n in "ABCDE"}
+def make_renderer(work, cuts):
+    """cuts: (clip letter, k0, k1, fx). Beat 0.5 s and the drop 2 s in, so frame(k) = 48 + 12k."""
+    segs = [Segment(k0, k1, shot=Shot(f"{c}.mov", 0.0), fx=fx) for c, k0, k1, fx in cuts]
+    clips = {f"{c}.mov": {"info": {"duration": 10.0}} for c, *_ in cuts}
+    end_k = float(cuts[-1][2])
     plan = EditPlan(title="Tokyo", length="short", look="clean", seed=1,
                     song={"path": "", "bpm": 120.0, "beat": 0.5, "drop": 2.0, "offset": 0.0, "duration": 30.0},
-                    end_k=8.0, total_k=12.0, clips=clips, rejected=[], segments=segs, whites=[], blooms=[])
+                    end_k=end_k, total_k=end_k + 4, clips=clips, rejected=[], segments=segs, whites=[], blooms=[])
     plan.assign_ids()
     for seg in segs:
         d = work / "frames" / seg.shot.id
         d.mkdir(parents=True)
-        frames = 24 + 16
         _frame(seg.shot.clip[0], 192, 108).save(d / "0001.jpg", quality=95)
-        (d / "meta.json").write_text(json.dumps({"w": 192, "h": 108, "map": [0] * frames}))
+        (d / "meta.json").write_text(json.dumps({"w": 192, "h": 108, "map": [0] * 40}))
     return Renderer(plan, work, SCALE)
+
+
+@pytest.fixture(scope="module")
+def renderer(tmp_path_factory):
+    return make_renderer(tmp_path_factory.mktemp("fx1"), [
+        ("A", -4, 0, {}), ("B", 0, 2, {}), ("C", 2, 4, {"slit": 1}), ("D", 4, 6, {"shrink": 1}), ("E", 6, 8, {"cpop": 1}),
+    ])
+
+
+@pytest.fixture(scope="module")
+def renderer2(tmp_path_factory):
+    return make_renderer(tmp_path_factory.mktemp("fx2"), [
+        ("A", -4, 0, {}), ("B", 0, 2, {}), ("C", 2, 4, {"strips": 1}), ("D", 4, 6, {"burn": 1}),
+    ])
 
 
 def px(im, x, y):
@@ -82,3 +88,20 @@ def test_colour_pop_keeps_one_colour(renderer):
     assert np.ptp(px(popped, *blue)) < 25  # blue drained to grey
     y = px(popped, *yellow)
     assert y[0] > 150 and y[1] > 120 and y[2] < 90  # yellow kept
+
+
+def test_strips_slide_in_from_alternate_sides(renderer2):
+    first = renderer2.render(72)  # top strip enters from the right, the others haven't started
+    assert dominant(px(first, 185, 18)) == "g" and dominant(px(first, 96, 54)) == "b" and dominant(px(first, 96, 90)) == "b"
+    mid = renderer2.render(74)
+    assert dominant(px(mid, 96, 18)) == "g"
+    assert dominant(px(mid, 60, 54)) == "g" and dominant(px(mid, 170, 54)) == "b"  # middle comes from the left
+    assert dominant(px(mid, 170, 90)) == "g" and dominant(px(mid, 60, 90)) == "b"  # bottom from the right
+    done = renderer2.render(77)
+    assert all(dominant(px(done, 96, y)) == "g" for y in (18, 54, 90))
+
+
+def test_light_leak_burns_across_the_cut(renderer2):
+    red = lambda f: float(np.asarray(renderer2.render(f))[..., 0].mean())
+    assert red(94) - red(88) > 20  # the end of the shot before the cut starts burning
+    assert red(98) - red(104) > 30  # and the new shot comes in through the leak

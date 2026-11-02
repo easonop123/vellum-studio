@@ -31,7 +31,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python run_app.py                       # the window
 .venv/bin/python -m vellum_editor.cli make --clips ~/Desktop/Tokyo --song song.mp3 --title Tokyo
 .venv/bin/python -m vellum_editor.cli song song.mp3   # just the BPM and drop
-.venv/bin/python -m pytest -q                    # 73 tests, including end-to-end renders
+.venv/bin/python -m pytest -q                    # 75 tests, including end-to-end renders
 ```
 
 Needs `ffmpeg` on PATH when run from source. The person-mask model (`u2net_human_seg.onnx`) goes in `editor/vellum_editor/assets/models/`. Without it, titles are placed without masks.

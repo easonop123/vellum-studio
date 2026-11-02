@@ -108,7 +108,7 @@ Text is left-aligned, one column of at most ~62 characters. Sections are separat
 - **D-Log M**: there's no reliable way to detect log footage from metadata, so it's an optional `.cube` LUT in Settings, applied to DJI clips or to all clips.
 - **Night street-light shots** (dark, with orange highlights) get a variant of each look that pulls orange down instead of warming it further.
 - **Looks:** Darkroom (your exact reference grade), Warm Film, Neon Night, Clean. Bloom, vignette and grain are added per frame, as in your `finish()`.
-- **Slit reveal (v6) and polaroid fly-off (v7/v8)** keep the previous shot playing for 6–8 frames while the new one comes in. Those frames count as used footage, so they can't break the never-repeat rule. They only follow a plain cut, never the hero, the climax, a big effect or a zoom-through.
+- **Slit reveal and sliding strips (v6) and polaroid fly-off (v7/v8)** keep the previous shot playing for 6–8 frames while the new one comes in. Those frames count as used footage, so they can't break the never-repeat rule. They only follow a plain cut, never the hero, the climax, a big effect or a zoom-through.
 - **Colour pop keeps the shot's own strongest colour**, not always yellow. v8 popped New York's yellow taxis, but customer clips have neon pink, sea blue or a red jacket instead. Yellow is the fallback when no colour stands out.
 - **Vertical layout is your reference layout:**
   - the 16:9 picture is a band in the middle;

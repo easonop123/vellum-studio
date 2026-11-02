@@ -13,8 +13,8 @@ FPS = 24
 W, H = 1920, 1080  # the 16:9 master; everything else is scaled from these coordinates
 
 # Transitions that keep the previous shot on screen (playing on) while the new one comes in:
-# the slit reveal (v6) and the polaroid fly-off (v7/v8). Frames past the previous cut's end.
-PEEK = {"slit": 6, "shrink": 8}
+# the slit reveal and sliding strips (v6) and the polaroid fly-off (v7/v8). Frames past the previous cut's end.
+PEEK = {"slit": 6, "strips": 6, "shrink": 8}
 
 
 def peek_frames(seg_after: "Segment | None") -> int:

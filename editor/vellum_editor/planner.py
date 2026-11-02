@@ -32,10 +32,10 @@ TILE = (640, 360)
 # One bar = 4 beats. (beats, effects) per cut.
 PATTERNS: dict[str, list[tuple[float, dict]]] = {
     "eighths": [(0.5, {"punch": 1})] * 3 + [(0.5, {"punch": 1, "border": 1})] + [(0.5, {"punch": 1}), (0.5, {"punch": 1, "flicker": 1})] + [(0.5, {"punch": 1})] * 2,
-    "mixed_a": [(1, {"creep": 0.04}), (0.5, {"punch": 1}), (0.5, {"punch": 1}), (1, {"whip": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "border": 1})],
+    "mixed_a": [(1, {"creep": 0.04, "burn": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1}), (1, {"whip": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "border": 1})],
     "mixed_b": [(0.5, {"punch": 1}), (0.5, {"whip": 1}), (1, {"creep": 0.05}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1, "dark": 1}), (1, {"punch": 1})],
     "burst": [(1, {"creep": 0.04}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (1, {"whip": 1}), (1, {"punch": 1})],
-    "flash": [(1, {"punch": 1, "flash": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "glitch": 1}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"creep": 0.04})],
+    "flash": [(1, {"punch": 1, "flash": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "glitch": 1}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"creep": 0.04, "strips": 1})],
     "holds": [(1, {"creep": 0.04}), (1, {"slit": 1}), (1, {"whip": 1}), (1, {"creep": 0.03, "cpop": 1})],
     "long": [(2, {"creep": 0.06, "leak": 1, "shrink": 1}), (1, {"punch": 1}), (1, {"whip": 1})],
 }
