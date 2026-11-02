@@ -200,6 +200,9 @@ The app isn't signed with a paid Apple developer account, so macOS asks once.
 ## If something breaks
 
 - **Order page says "storage isn't connected yet"**: do A4, including the redeploy.
+- **"your order … is saved but the payment page didn't open"**: Stripe said no. In test mode the message ends with Stripe's reason (or see it in Vercel: your project, **Logs**, the red **stripe checkout failed** line). The usual two:
+  - **Invalid API key** or **publishable key**: the key must be the secret one, starting `sk_test_`. Copy it again (A2 steps 3–5). In Vercel, open **Settings**, then **Environment Variables**, click **⋯** next to `STRIPE_SECRET_KEY`, then **Edit**, paste, **Save**, and redeploy (A5 step 10).
+  - **Business name**: in Stripe, open **Settings**, then **Business**, and set the business name to **Vellum Studio** (customers see it on the payment page). Save. No redeploy needed.
 - **Order page says "payments aren't switched on yet"**: `STRIPE_SECRET_KEY` is missing. Add it (A3 step 5, or **Settings → Environment Variables**) and redeploy.
 - **Uploads fail straight away**: the Blob store was probably created as **Public**. Either make a new **Private** store (A4) and connect that one, or add an environment variable `BLOB_ACCESS` with value `public` and redeploy.
 - **Order paid but shows "not paid" in admin**: check the webhook (A5). Stripe's endpoint page lists each delivery and whether it worked. The thanks page also checks with Stripe directly, so this is rare.

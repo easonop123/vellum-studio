@@ -1,7 +1,7 @@
 import { newOrderId } from "@/lib/ids";
 import { formatBytes, MAX_TOTAL_BYTES } from "@/lib/limits";
 import { fieldErrors, orderInputSchema } from "@/lib/order-schema";
-import { checkoutMode, createStripeCheckout, priceFor } from "@/lib/payments";
+import { checkoutMode, createStripeCheckout, isLiveKey, priceFor, stripeKeyProblem } from "@/lib/payments";
 import { SITE } from "@/lib/site";
 import { ConfigError, getStore, type OrderRecord, type OrderStore } from "@/lib/store";
 
@@ -27,6 +27,8 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
+  const keyProblem = mode === "stripe" ? stripeKeyProblem() : null;
+  if (keyProblem) return Response.json({ formError: keyProblem }, { status: 503 });
 
   const json = await request.json().catch(() => null);
   const parsed = orderInputSchema.safeParse(json);
@@ -89,8 +91,10 @@ export async function POST(request: Request) {
     return Response.json({ id, url });
   } catch (err) {
     console.error("stripe checkout failed", err);
+    // With a test key it's you testing, so show what Stripe said. Real customers get the plain message.
+    const said = !isLiveKey() && err instanceof Error && err.message ? ` stripe said: "${err.message.slice(0, 300)}"` : "";
     return Response.json(
-      { formError: `your order ${id} is saved but the payment page didn't open. try again, or email ${SITE.links.email}.` },
+      { formError: `your order ${id} is saved but the payment page didn't open. try again, or email ${SITE.links.email}.${said}` },
       { status: 502 },
     );
   }

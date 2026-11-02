@@ -11,20 +11,43 @@ export type CheckoutMode = "stripe" | "fake" | "off";
  * - "off":    no key on the live site. Ordering shows a clear error instead
  *             of handing out free edits.
  */
+function secretKey(): string {
+  return (process.env.STRIPE_SECRET_KEY ?? "").trim();
+}
+
 export function checkoutMode(): CheckoutMode {
-  if (process.env.STRIPE_SECRET_KEY) return "stripe";
+  if (secretKey()) return "stripe";
   if (process.env.NODE_ENV !== "production" || process.env.ALLOW_FAKE_CHECKOUT === "1") return "fake";
   return "off";
 }
 
 export function isStripeTestMode(): boolean {
-  const key = process.env.STRIPE_SECRET_KEY ?? "";
+  const key = secretKey();
   return key.startsWith("sk_test_") || key.startsWith("rk_test_");
+}
+
+/** Live keys mean real customers, who never see Stripe's own error text. */
+export function isLiveKey(): boolean {
+  const key = secretKey();
+  return key.startsWith("sk_live_") || key.startsWith("rk_live_");
+}
+
+/** A plain-words reason when the key on the site can't work, so Stripe isn't even asked. */
+export function stripeKeyProblem(): string | null {
+  const key = secretKey();
+  if (!key) return null;
+  if (key.startsWith("pk_")) {
+    return "the stripe key on the site is the publishable one (pk_…). it needs the secret key, which starts with sk_test_.";
+  }
+  if (!/^(sk|rk)_(test|live)_[A-Za-z0-9]+$/.test(key)) {
+    return "the stripe key on the site doesn't look right. it should start with sk_test_ and have no spaces in it.";
+  }
+  return null;
 }
 
 let stripeClient: Stripe | null = null;
 export function getStripe(): Stripe {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = secretKey();
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
   if (!stripeClient) stripeClient = new Stripe(key, { appInfo: { name: "vellum-studio" } });
   return stripeClient;
