@@ -27,9 +27,11 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 
 1. Go to **dashboard.stripe.com** and sign up (or log in).
 2. Make sure you're in **test mode**: the **Test mode** switch (top right) is on, or you've picked your **Sandbox** from the account menu (top left).
-3. Click **Developers** (bottom left), then **API keys**.
-4. Next to **Secret key**, click **Reveal test key**.
-5. Copy the key (it starts with `sk_test_`). Keep this tab open.
+3. Click the **gear** (Settings, top right), then **Business**, then **Public details**.
+4. In **Public business name**, type **Vellum Studio** and click **Save**. Stripe won't show a payment page without a name, and customers see it there.
+5. Click **Developers** (bottom left), then **API keys**.
+6. Next to **Secret key**, click **Reveal test key**.
+7. Copy the key (it starts with `sk_test_`). Keep this tab open.
 
 ### A3. Put the site on Vercel
 
@@ -201,7 +203,7 @@ The app isn't signed with a paid Apple developer account, so macOS asks once.
 
 - **Order page says "storage isn't connected yet"**: do A4, including the redeploy.
 - **"your order … is saved but the payment page didn't open"**: Stripe said no. In test mode the message ends with Stripe's reason (or see it in Vercel: your project, **Logs**, the red **stripe checkout failed** line). The usual two:
-  - **Invalid API key** or **publishable key**: the key must be the secret one, starting `sk_test_`. Copy it again (A2 steps 3–5). In Vercel, open **Settings**, then **Environment Variables**, click **⋯** next to `STRIPE_SECRET_KEY`, then **Edit**, paste, **Save**, and redeploy (A5 step 10).
+  - **Invalid API key** or **publishable key**: the key must be the secret one, starting `sk_test_`. Copy it again (A2 steps 5–7). In Vercel, open **Settings**, then **Environment Variables**, click **⋯** next to `STRIPE_SECRET_KEY`, then **Edit**, paste, **Save**, and redeploy (A5 step 10).
   - **Business name**: in Stripe, open **Settings**, then **Business**, and set the business name to **Vellum Studio** (customers see it on the payment page). Save. No redeploy needed.
 - **Order page says "payments aren't switched on yet"**: `STRIPE_SECRET_KEY` is missing. Add it (A3 step 5, or **Settings → Environment Variables**) and redeploy.
 - **Uploads fail straight away**: the Blob store was probably created as **Public**. Either make a new **Private** store (A4) and connect that one, or add an environment variable `BLOB_ACCESS` with value `public` and redeploy.
