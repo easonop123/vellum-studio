@@ -65,15 +65,18 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 
 ### A5. Tell Stripe where to send payment confirmations
 
-1. Back in Stripe (still test mode), click **Developers**, then **Webhooks**.
-2. Click **Add endpoint**. (Newer dashboards: **Add destination**, choose **Webhook endpoint**.)
-3. In **Endpoint URL**, type your site address plus `/api/stripe/webhook`, e.g. `https://vellum-studio-abc.vercel.app/api/stripe/webhook`.
-4. Click **Select events**, search for `checkout.session`, and tick **checkout.session.completed** and **checkout.session.async_payment_succeeded**.
-5. Click **Add endpoint** (or **Create destination**).
-6. On the endpoint's page, under **Signing secret**, click **Reveal** and copy it (starts with `whsec_`).
-7. In Vercel, open your project's **Settings** tab, then **Environment Variables**.
-8. Add Key `STRIPE_WEBHOOK_SECRET` with the `whsec_…` value, and click **Save**.
-9. Go to **Deployments**, click **⋯** on the top one, then **Redeploy**, then **Redeploy**.
+1. Back in Stripe (still in test mode, which newer dashboards call **Sandbox**), click **Developers**, then **Webhooks**.
+2. Click **Add destination**. (Older dashboards say **Add endpoint** and ask for the address first; the choices are the same.)
+3. Leave **Your account** and **Snapshot** selected, and leave the **API version** as it is.
+4. Scroll down to the events, search for `checkout.session`, and tick **checkout.session.completed** and **checkout.session.async_payment_succeeded**. Click **Continue**.
+5. Pick **Webhook endpoint** and click **Continue**.
+6. In **Endpoint URL**, type your site address plus `/api/stripe/webhook`, e.g. `https://vellum-studio-abc.vercel.app/api/stripe/webhook`. Click **Create destination**.
+7. On the page that opens, under **Signing secret**, click **Reveal** (or the eye) and copy it (starts with `whsec_`).
+8. In Vercel, open your project's **Settings** tab, then **Environment Variables**.
+9. Add Key `STRIPE_WEBHOOK_SECRET` with the `whsec_…` value, and click **Save**.
+10. Go to **Deployments**, click **⋯** on the top one, then **Redeploy**, then **Redeploy**.
+
+Ignore Stripe's **Verify your business** button for now. That's for real payments (Part C).
 
 ### A6. Place a test order
 
