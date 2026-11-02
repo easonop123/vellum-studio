@@ -71,7 +71,7 @@ Updated as I go. Newest status first.
 
 On `main`, the `.dmg` is attached to a GitHub Release.
 
-**Latest check (2 Nov):** every step passed. The tests passed on Linux and macOS, the built app rendered a 46-cut edit by itself in 12.5 s, and the `.dmg` came out at 281 MB. Most of that is the person-finding model and the video tools inside it. The release step only runs on `main`, so it starts after YOUR-STEPS A1.
+**Latest check (2 Nov, build 6, with all the new effects):** every step passed. The tests passed on Linux and macOS, the built app rendered a 46-cut test edit by itself in 16 seconds, and the `.dmg` came out at 281 MB. Most of that is the person-finding model and the video tools inside it. The release step only runs on `main`, so it starts after YOUR-STEPS A1.
 
 ## Website: what works
 
