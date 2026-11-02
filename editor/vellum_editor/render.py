@@ -191,6 +191,12 @@ class Renderer:
             im = fx.border(im, i, S)
         if s.fx.get("flash") and i < 2:
             im = fx.flash(im, [0.85, 0.45][i])
+        if s.fx.get("dark") and i < 2:  # black flash
+            im = fx.flash(im, [0.85, 0.4][i], (0, 0, 0))
+        if s.fx.get("flicker") and i < 6:
+            im = Image.eval(im, lambda v, g=[1.0, 0.45, 1.25, 0.6, 1.12, 0.85][i]: min(255, int(v * g)))
+        if s.fx.get("glitch") and i < 3:
+            im = fx.glitch(im, i, S)
         im = self.labels(im, f)
         if s.fx.get("ending"):
             im = self.letterbox(im, i, n)

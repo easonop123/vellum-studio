@@ -31,11 +31,11 @@ TILE = (640, 360)
 
 # One bar = 4 beats. (beats, effects) per cut.
 PATTERNS: dict[str, list[tuple[float, dict]]] = {
-    "eighths": [(0.5, {"punch": 1})] * 3 + [(0.5, {"punch": 1, "border": 1})] + [(0.5, {"punch": 1})] * 4,
+    "eighths": [(0.5, {"punch": 1})] * 3 + [(0.5, {"punch": 1, "border": 1})] + [(0.5, {"punch": 1}), (0.5, {"punch": 1, "flicker": 1})] + [(0.5, {"punch": 1})] * 2,
     "mixed_a": [(1, {"creep": 0.04}), (0.5, {"punch": 1}), (0.5, {"punch": 1}), (1, {"whip": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "border": 1})],
-    "mixed_b": [(0.5, {"punch": 1}), (0.5, {"whip": 1}), (1, {"creep": 0.05}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"punch": 1})],
+    "mixed_b": [(0.5, {"punch": 1}), (0.5, {"whip": 1}), (1, {"creep": 0.05}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1, "dark": 1}), (1, {"punch": 1})],
     "burst": [(1, {"creep": 0.04}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (0.25, {"punch": 1, "rgb": 1}), (0.25, {"punch": 1}), (1, {"whip": 1}), (1, {"punch": 1})],
-    "flash": [(1, {"punch": 1, "flash": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"creep": 0.04})],
+    "flash": [(1, {"punch": 1, "flash": 1}), (0.5, {"punch": 1}), (0.5, {"punch": 1, "glitch": 1}), (0.5, {"punch": 1, "bw": 2}), (0.5, {"punch": 1}), (1, {"creep": 0.04})],
     "holds": [(1, {"creep": 0.04}), (1, {"punch": 1}), (1, {"whip": 1}), (1, {"creep": 0.03})],
     "long": [(2, {"creep": 0.06, "leak": 1}), (1, {"punch": 1}), (1, {"whip": 1})],
 }
@@ -88,6 +88,20 @@ class Pool:
         for a, b in self.used_ranges.get(clip.name, []):
             if start < b + 0.25 and start + need > a - 0.25:
                 return False
+        return True
+
+    def extend(self, clip: ClipAnalysis, start: float, old_end: float, new_end: float) -> bool:
+        """Grow the range that starts at `start` to `new_end`, if no other use of the clip is in the way."""
+        ranges = self.used_ranges.get(clip.name, [])
+        own = min(ranges, key=lambda r: abs(r[0] - start), default=None)
+        if own is None or abs(own[0] - start) > 1e-6 or new_end > clip.info.duration - 0.02:
+            return False
+        for a, b in ranges:
+            if (a, b) is own or (a, b) == own:
+                continue
+            if old_end < b + 0.25 and new_end > a - 0.25:
+                return False
+        ranges[ranges.index(own)] = (own[0], max(own[1], new_end))
         return True
 
     def take(self, clip: ClipAnalysis, need: float, prefer: float | None = None) -> float | None:
@@ -354,6 +368,9 @@ def make_plan(
             return False
         s.shot = Shot(clip=clip.name, ss=round(start, 3), speed=s.speed, ramp=s.ramp, box=s.box,
                       fx=round(clip.focus[0], 3), fy=round(clip.focus[1], 3), raw=s.raw, reuse=reuse)
+        if clip.info.kind == "photo":
+            s.fx["creep"] = max(float(s.fx.get("creep") or 0), 0.1)  # photos always get a slow zoom
+            s.fx.pop("punch", None)
         return True
 
     # fixed roles first
@@ -465,12 +482,26 @@ def make_plan(
         owner[idx] = seg
         segments.append(seg)
 
-    # drop segments that ended up with no footage at all (tiny inputs): stretch the previous one
+    # Slots that got no footage: stretch the cut before them. The stretched cut must not run
+    # into footage used elsewhere, so either reserve more of its clip or slow it down to fit.
+    def nframes(k0: float, k1: float) -> int:
+        return int(round((drop_edit + k1 * beat) * FPS)) - int(round((drop_edit + k0 * beat) * FPS))
+
     cleaned: list[Segment] = []
     for seg in segments:
         if seg.shot is None and seg.kind == "shot":
             if cleaned:
-                cleaned[-1].k1 = seg.k1
+                prev = cleaned[-1]
+                sh = prev.shot
+                if sh is not None and prev.kind == "shot" and not sh.ramp:
+                    clip = pool_clip(usable, sh.clip)
+                    old_n, new_n = nframes(prev.k0, prev.k1), nframes(prev.k0, seg.k1)
+                    old_end = sh.ss + (old_n + 1) * sh.speed / FPS + 0.05
+                    new_end = sh.ss + (new_n + 1) * sh.speed / FPS + 0.05
+                    if clip.info.kind == "video" and not pool.extend(clip, sh.ss, old_end, new_end):
+                        sh.speed = round(max(0.2, sh.speed * old_n / max(1, new_n)), 4)
+                    prev.fx["creep"] = max(float(prev.fx.get("creep") or 0), 0.05)
+                prev.k1 = seg.k1
             continue
         cleaned.append(seg)
     segments = cleaned

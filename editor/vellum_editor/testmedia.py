@@ -115,6 +115,30 @@ def make_clip(path: Path, *, seconds: float = 3.0, fps: float = 30, w: int = 320
     return path
 
 
+def make_hdr_clip(path: Path) -> Path:
+    """An iPhone-style HLG clip (BT.2020, 10-bit when the encoder allows). Different ffmpeg builds tag
+    colour differently, so set it on the frames and in the container, then check it stuck."""
+    from .ffmpeg import probe_json
+
+    tags = ["-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc"]
+    setparams = "setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc"
+    attempts = [
+        ["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", "-pix_fmt", "yuv420p10le", *tags, "-tag:v", "hvc1"],
+        ["-c:v", "libx264", "-preset", "ultrafast", "-profile:v", "high10", "-pix_fmt", "yuv420p10le", *tags],
+        ["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", *tags],
+    ]
+    for codec in attempts:
+        try:
+            make_clip(path, seconds=3.0, fps=30, pattern=0, hue=90, extra_vf=setparams,
+                      codec_args=[*codec, "-movflags", "+write_colr"])
+            video = next(st for st in probe_json(path)["streams"] if st.get("codec_type") == "video")
+            if video.get("color_transfer") == "arib-std-b67":
+                return path
+        except Exception:
+            continue
+    raise RuntimeError("this ffmpeg can't write an HLG-tagged test clip")
+
+
 def make_test_set(folder: Path, *, count: int = 26) -> dict:
     """The messy set the brief asks the tests to cover. Returns a description of what's where."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -139,13 +163,7 @@ def make_test_set(folder: Path, *, count: int = 26) -> dict:
     base.unlink()
     made["rotated"].append("IMG_9001.MOV")
     # HDR-tagged (HLG, BT.2020, 10-bit), like an iPhone HDR clip
-    hdr_tags = ["-pix_fmt", "yuv420p10le", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67", "-colorspace", "bt2020nc"]
-    try:
-        make_clip(folder / "IMG_9002.MOV", seconds=3.0, fps=30, pattern=0, hue=90,
-                  codec_args=["-c:v", "libx265", "-preset", "ultrafast", "-x265-params", "log-level=error", *hdr_tags, "-tag:v", "hvc1"])
-    except Exception:  # ffmpeg built without x265: 10-bit H.264 carries the same HDR tags
-        make_clip(folder / "IMG_9002.MOV", seconds=3.0, fps=30, pattern=0, hue=90,
-                  codec_args=["-c:v", "libx264", "-preset", "ultrafast", "-profile:v", "high10", *hdr_tags])
+    make_hdr_clip(folder / "IMG_9002.MOV")
     made["hdr"].append("IMG_9002.MOV")
     # a black clip (lens cap) and a blurry one
     run(["-f", "lavfi", "-i", "color=c=black:size=320x180:rate=30", "-t", "3", "-c:v", "libx264", "-preset", "ultrafast",

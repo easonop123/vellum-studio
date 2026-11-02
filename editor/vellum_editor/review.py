@@ -15,7 +15,7 @@ FX_NAMES = {
     "raw": "raw", "hero": "hero title", "boom": "climax", "punch": "punch-in", "creep": "slow zoom", "whip": "whip",
     "bw": "b&w flash", "rgb": "rgb split", "border": "red border", "leak": "light leak", "zt": "zoom-through",
     "flash": "white flash", "sil": "silhouette flash", "spaced": "spaced title", "ending": "ending", "prebloom": "swell to drop",
-    "continues": "carries on", "pips": "picture-in-picture",
+    "continues": "carries on", "pips": "picture-in-picture", "dark": "black flash", "flicker": "flicker", "glitch": "glitch",
 }
 KIND_NAMES = {"grid9": "3x3 grid", "tri": "triple frame", "film": "film strip", "tmask": "giant letters", "cutout": "cut-out sticker"}
 

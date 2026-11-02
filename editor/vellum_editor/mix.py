@@ -103,6 +103,13 @@ def cues(plan: EditPlan) -> list[Cue]:
             add("click_loud", f0, -7)
         if fx.get("flash"):
             add("flash", f0, -6)
+        if fx.get("dark"):
+            add("click_loud", f0, -8)
+        if fx.get("flicker"):
+            for j in range(0, 6, 2):
+                add("click", f0 + j, -12)
+        if fx.get("glitch"):
+            add("glitch", f0, -9)
         if fx.get("zt"):
             add("whoosh", f1 - 5, -6)
         if fx.get("sil"):
