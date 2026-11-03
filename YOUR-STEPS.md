@@ -27,9 +27,11 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 
 1. Go to **dashboard.stripe.com** and sign up (or log in).
 2. Make sure you're in **test mode**: the **Test mode** switch (top right) is on, or you've picked your **Sandbox** from the account menu (top left).
-3. Click **Developers** (bottom left), then **API keys**.
-4. Next to **Secret key**, click **Reveal test key**.
-5. Copy the key (it starts with `sk_test_`). Keep this tab open.
+3. Click the **gear** (Settings, top right), then **Business**, then **Public details**.
+4. In **Public business name**, type **Vellum Studio** and click **Save**. Stripe won't show a payment page without a name, and customers see it there.
+5. Click **Developers** (bottom left), then **API keys**.
+6. Next to **Secret key**, click **Reveal test key**.
+7. Copy the key (it starts with `sk_test_`). Keep this tab open.
 
 ### A3. Put the site on Vercel
 
@@ -38,7 +40,8 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 3. Click **Add New…**, then **Project**.
 4. Next to **vellum-studio**, click **Import**.
    - Not in the list? Click **Adjust GitHub App Permissions**, tick **vellum-studio**, save, and come back.
-5. Open the **Environment Variables** section and add these three, one at a time (type the name in **Key**, paste the value in **Value**, click **Add**):
+   - Does the next page list more than one app (one says **Next.js**)? Click **Import single project** next to the **Next.js** one. The other is the Mac app, which doesn't go on Vercel.
+5. Open the **Environment Variables** section and add these three, one at a time (type the name in **Key**, paste the value in **Value**, then click **Add More** for the next one):
 
    | Key | Value |
    | --- | --- |
@@ -46,8 +49,9 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
    | `ADMIN_PASSWORD` | a password you make up. It opens your orders page |
    | `CRON_SECRET` | any 30+ random letters and numbers (mash the keyboard) |
 
-6. Click **Deploy** and wait about two minutes.
-7. Click **Continue to Dashboard**. Your site address is shown under **Domains** (something like `vellum-studio-abc.vercel.app`). Write it down.
+6. Leave the **Stripe** box under **Optional Integrations** alone (it connects Stripe a different way; your key is already in).
+7. Click **Deploy** and wait about two minutes. Greyed out? One variable row is half filled in: give it a name and a value, or remove it.
+8. Click **Continue to Dashboard**. Your site address is shown under **Domains** (something like `vellum-studio-abc.vercel.app`). Write it down.
 
 ### A4. Add storage for uploaded clips
 
@@ -63,15 +67,18 @@ Menus on Vercel and Stripe move around now and then: if a button name is slightl
 
 ### A5. Tell Stripe where to send payment confirmations
 
-1. Back in Stripe (still test mode), click **Developers**, then **Webhooks**.
-2. Click **Add endpoint**. (Newer dashboards: **Add destination**, choose **Webhook endpoint**.)
-3. In **Endpoint URL**, type your site address plus `/api/stripe/webhook`, e.g. `https://vellum-studio-abc.vercel.app/api/stripe/webhook`.
-4. Click **Select events**, search for `checkout.session`, and tick **checkout.session.completed** and **checkout.session.async_payment_succeeded**.
-5. Click **Add endpoint** (or **Create destination**).
-6. On the endpoint's page, under **Signing secret**, click **Reveal** and copy it (starts with `whsec_`).
-7. In Vercel, open your project's **Settings** tab, then **Environment Variables**.
-8. Add Key `STRIPE_WEBHOOK_SECRET` with the `whsec_…` value, and click **Save**.
-9. Go to **Deployments**, click **⋯** on the top one, then **Redeploy**, then **Redeploy**.
+1. Back in Stripe (still in test mode, which newer dashboards call **Sandbox**), click **Developers**, then **Webhooks**.
+2. Click **Add destination**. (Older dashboards say **Add endpoint** and ask for the address first; the choices are the same.)
+3. Leave **Your account** and **Snapshot** selected, and leave the **API version** as it is.
+4. Scroll down to the events, search for `checkout.session`, and tick **checkout.session.completed** and **checkout.session.async_payment_succeeded**. Click **Continue**.
+5. Pick **Webhook endpoint** and click **Continue**.
+6. In **Endpoint URL**, type your site address plus `/api/stripe/webhook`, e.g. `https://vellum-studio-abc.vercel.app/api/stripe/webhook`. Click **Create destination**.
+7. On the page that opens, under **Signing secret**, click **Reveal** (or the eye) and copy it (starts with `whsec_`).
+8. In Vercel, open your project's **Settings** tab, then **Environment Variables**.
+9. Add Key `STRIPE_WEBHOOK_SECRET` with the `whsec_…` value, and click **Save**.
+10. Go to **Deployments**, click **⋯** on the top one, then **Redeploy**, then **Redeploy**.
+
+Ignore Stripe's **Verify your business** button for now. That's for real payments (Part C).
 
 ### A6. Place a test order
 
@@ -195,6 +202,9 @@ The app isn't signed with a paid Apple developer account, so macOS asks once.
 ## If something breaks
 
 - **Order page says "storage isn't connected yet"**: do A4, including the redeploy.
+- **"your order … is saved but the payment page didn't open"**: Stripe said no. In test mode the message ends with Stripe's reason (or see it in Vercel: your project, **Logs**, the red **stripe checkout failed** line). The usual two:
+  - **Invalid API key** or **publishable key**: the key must be the secret one, starting `sk_test_`. Copy it again (A2 steps 5–7). In Vercel, open **Settings**, then **Environment Variables**, click **⋯** next to `STRIPE_SECRET_KEY`, then **Edit**, paste, **Save**, and redeploy (A5 step 10).
+  - **Business name**: in Stripe, open **Settings**, then **Business**, and set the business name to **Vellum Studio** (customers see it on the payment page). Save. No redeploy needed.
 - **Order page says "payments aren't switched on yet"**: `STRIPE_SECRET_KEY` is missing. Add it (A3 step 5, or **Settings → Environment Variables**) and redeploy.
 - **Uploads fail straight away**: the Blob store was probably created as **Public**. Either make a new **Private** store (A4) and connect that one, or add an environment variable `BLOB_ACCESS` with value `public` and redeploy.
 - **Order paid but shows "not paid" in admin**: check the webhook (A5). Stripe's endpoint page lists each delivery and whether it worked. The thanks page also checks with Stripe directly, so this is rare.
