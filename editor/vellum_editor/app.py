@@ -694,6 +694,14 @@ class MainWindow(QMainWindow):
         """Play 3 s before to 4 s after the drop, with a click on every beat (macOS)."""
         if self.song is None or not self.song_path:
             return
+        try:
+            self._play_drop()
+        except Exception as err:  # never fail silently: say what went wrong
+            import logging
+            logging.getLogger(__name__).exception("hear the drop failed")
+            self.status.setText(f"couldn't play the drop: {err}")
+
+    def _play_drop(self):
         from .ffmpeg import read_audio, write_wav
         from .sfx import SR, builtin_bank
 
@@ -711,10 +719,9 @@ class MainWindow(QMainWindow):
         write_wav(tmp, audio)
         if self.player and self.player.poll() is None:
             self.player.terminate()
-        try:
-            self.player = subprocess.Popen(["afplay", str(tmp)])
-        except OSError:
-            pass
+        afplay = "/usr/bin/afplay" if Path("/usr/bin/afplay").exists() else "afplay"
+        self.player = subprocess.Popen([afplay, str(tmp)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.status.setText("playing 3 s before the drop to 4 s after, with a click on every beat…")
 
     def open_settings(self):
         dlg = SettingsDialog(self.settings, self)
