@@ -21,14 +21,15 @@ def _frame(name, w, h):
     return Image.new("RGB", (w, h), COLOURS[name])
 
 
-def make_renderer(work, cuts):
+def make_renderer(work, cuts, look="clean", texture=True):
     """cuts: (clip letter, k0, k1, fx). Beat 0.5 s and the drop 2 s in, so frame(k) = 48 + 12k."""
     segs = [Segment(k0, k1, shot=Shot(f"{c}.mov", 0.0), fx=fx) for c, k0, k1, fx in cuts]
     clips = {f"{c}.mov": {"info": {"duration": 10.0}} for c, *_ in cuts}
     end_k = float(cuts[-1][2])
-    plan = EditPlan(title="Tokyo", length="short", look="clean", seed=1,
+    plan = EditPlan(title="Tokyo", length="short", look=look, seed=1,
                     song={"path": "", "bpm": 120.0, "beat": 0.5, "drop": 2.0, "offset": 0.0, "duration": 30.0},
-                    end_k=end_k, total_k=end_k + 4, clips=clips, rejected=[], segments=segs, whites=[], blooms=[])
+                    end_k=end_k, total_k=end_k + 4, clips=clips, rejected=[], segments=segs, whites=[], blooms=[],
+                    settings={"render": {"texture": texture}})
     plan.assign_ids()
     for seg in segs:
         d = work / "frames" / seg.shot.id
@@ -105,3 +106,24 @@ def test_light_leak_burns_across_the_cut(renderer2):
     red = lambda f: float(np.asarray(renderer2.render(f))[..., 0].mean())
     assert red(94) - red(88) > 20  # the end of the shot before the cut starts burning
     assert red(98) - red(104) > 30  # and the new shot comes in through the leak
+
+
+def test_old_film_texture_can_be_switched_off(tmp_path_factory):
+    """Ticked: grain changes every frame. Unticked: a still shot stays perfectly still."""
+    cuts = [("A", -4, 0, {}), ("B", 0, 2, {}), ("C", 2, 4, {})]
+    grainy = make_renderer(tmp_path_factory.mktemp("tex_on"), cuts, look="darkroom")
+    clean = make_renderer(tmp_path_factory.mktemp("tex_off"), cuts, look="darkroom", texture=False)
+    diff = lambda r: np.abs(np.asarray(r.render(84), int) - np.asarray(r.render(85), int)).mean()
+    assert diff(grainy) > 2 and diff(clean) == 0
+
+
+def test_grade_without_texture_keeps_real_blacks():
+    from vellum_editor.looks import LOOKS, finish_amounts, grade_filter
+
+    for look in LOOKS.values():
+        on, off = grade_filter(look, False, False), grade_filter(look, False, False, texture=False)
+        if "curves=" in on:
+            assert "curves=all='0/0 " in off and " 1/1'" in off
+            assert on.split("curves")[0] == off.split("curves")[0]  # same colours otherwise
+        assert finish_amounts(look, False)[2] == 0  # no grain
+    assert grade_filter(LOOKS["darkroom"], True, False, texture=False) == grade_filter(LOOKS["darkroom"], True, False)

@@ -40,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     mk.add_argument("--song-start", type=float, default=0.0)
     mk.add_argument("--no-masks", action="store_true")
     mk.add_argument("--strict", action="store_true")
+    mk.add_argument("--no-texture", action="store_true", help="no grain or faded blacks (clean modern look)")
     mk.add_argument("--out")
     mk.add_argument("--workers", type=int)
     mk.add_argument("--keep-work", action="store_true")
@@ -67,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "make":
         settings = pipeline.EditSettings(
             clips_dir=a.clips, song=a.song, title=a.title, length=a.length, look=a.look, scale=a.scale,
-            bpm=a.bpm, drop=a.drop, song_start=a.song_start, use_masks=not a.no_masks, strict=a.strict,
+            bpm=a.bpm, drop=a.drop, song_start=a.song_start, use_masks=not a.no_masks, strict=a.strict, texture=not a.no_texture,
             out_dir=a.out, workers=a.workers, keep_work=a.keep_work, preset=a.preset,
         )
         t = time.time()

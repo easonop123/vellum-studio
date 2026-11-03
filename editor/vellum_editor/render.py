@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 from . import fx
 from .extract import EXTRA_FRAMES
-from .looks import get_look
+from .looks import finish_amounts, get_look
 from .plan import FPS, PEEK, EditPlan, Segment, Shot
 from .text import TitleLayout, anton, center_text, draw_title, grotesk, mono, tiktok
 
@@ -33,7 +33,8 @@ class Renderer:
         self.VW, self.VH = even(1080 * scale), even(1920 * scale)
         self.VY, self.VHt = int(656 * scale), even(608 * scale)
         self.look = get_look(plan.look)
-        self.finish = fx.Finisher(self.W, self.H, self.look.bloom, self.look.vignette, self.look.grain)
+        texture = bool((plan.settings.get("render") or {}).get("texture", True))
+        self.finish = fx.Finisher(self.W, self.H, *finish_amounts(self.look, texture))
         self.segs = plan.segments
         self.ranges = [plan.frames_of(s) for s in self.segs]
         self.end = plan.end_frame

@@ -70,6 +70,10 @@ def test_app_full_job(qapp, media, tmp_path, monkeypatch):
     assert abs(w.song.beat - 1.0) < 1e-9
     w.reset_song_nudges()
 
+    assert w.texture.isChecked() and w.edit_settings().texture  # old film texture is on by default
+    w.texture.setChecked(False)  # render this one clean
+    assert w.edit_settings().texture is False
+
     assert w.make_btn.isEnabled()
     w.make_btn.click()
     assert w.busy() and not w.make_btn.isEnabled()

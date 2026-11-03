@@ -6,6 +6,7 @@ lifted blacks; then bloom, vignette and grain are added per frame in Python.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from .ffmpeg import has_filter
@@ -111,7 +112,23 @@ def lut_filter(info: ClipInfo, lut_path: str | None, apply_to: str) -> str:
     return f"lut3d=file='{escaped}'"
 
 
-def grade_filter(look: Look, raw: bool, night_orange: bool) -> str:
+def true_blacks(chain: str) -> str:
+    """The same grade without the old-film part of the curve: real blacks and full whites."""
+    chain = re.sub(r"curves=all='0/[0-9.]+ ", "curves=all='0/0 ", chain)
+    return re.sub(r" 1/[0-9.]+'", " 1/1'", chain)
+
+
+def grade_filter(look: Look, raw: bool, night_orange: bool, texture: bool = True) -> str:
+    """texture=False is the "old film texture" box unticked: same colours, without faded blacks."""
     if raw:
         return RAW_LOOK
-    return look.night if night_orange else look.grade
+    chain = look.night if night_orange else look.grade
+    return chain if texture else true_blacks(chain)
+
+
+def finish_amounts(look: Look, texture: bool = True) -> tuple[float, float, float]:
+    """(bloom, vignette, grain) for the per-frame finish. Without the film texture: no grain,
+    and a lighter vignette and glow, for a clean modern picture."""
+    if texture:
+        return look.bloom, look.vignette, look.grain
+    return look.bloom * 0.6, look.vignette * 0.4, 0.0

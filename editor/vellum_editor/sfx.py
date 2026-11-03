@@ -6,6 +6,7 @@ any format ffmpeg reads). Anything missing falls back to the built-in sound.
 """
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -98,57 +99,133 @@ def _fade(x: np.ndarray, seconds: float = 0.004) -> np.ndarray:
 
 # ---------------------------------------------------------------------------- the sounds
 
+def _shape(x: np.ndarray, peaks: list[tuple[float, float, float]], lo: float = 0.0, hi: float = SR / 2,
+           floor: float = 0.12) -> np.ndarray:
+    """FFT filter whose response is a few broad bumps (centre Hz, width in octaves, gain) over a floor.
+    Broad bumps ring for well under a millisecond, so the result is a snap, never a note."""
+    n = len(x)
+    size = 1 << int(np.ceil(np.log2(max(2, n))))
+    f = np.fft.rfftfreq(size, 1 / SR)
+    lf = np.log2(np.maximum(f, 1.0))
+    resp = np.full(len(f), floor)
+    for fc, width, gain in peaks:
+        resp += gain * np.exp(-0.5 * ((lf - np.log2(fc)) / (width / 2.355)) ** 2)
+    if lo > 0:
+        resp *= np.clip((lf - np.log2(lo)) / 0.5 + 0.5, 0, 1)
+    if hi < SR / 2:
+        resp *= np.clip(0.5 - (lf - np.log2(hi)) / 0.5, 0, 1)
+    return np.fft.irfft(np.fft.rfft(x, size) * resp, size)[:n]
+
+
+def _snap(n: int, seed: int, tau: float, peaks: list[tuple[float, float, float]], lo: float = 400, hi: float = 15000,
+          bounces: tuple[tuple[float, float], ...] = (), body: float = 0.0, body_tau: float = 0.006,
+          body_hz: float = 260) -> np.ndarray:
+    """One mechanical hit: a noise impulse through broad metal resonances, tiny re-hits as parts settle,
+    and an optional low knock from the camera body. No sine tones, so nothing rings like a bar."""
+    t = np.arange(n) / SR
+    rng = np.random.default_rng(seed)
+    x = rng.normal(0, 1, n) * (1 - np.exp(-t / 0.00015)) * np.exp(-t / tau)
+    for delay, gain in bounces:
+        d = int(delay * SR)
+        if d < n:
+            x[d:] += rng.normal(0, 1, n - d) * gain * np.exp(-t[: n - d] / (tau * 0.5))
+    x = _shape(x, peaks, lo, hi) * (1 - np.exp(-t / 0.0002))  # a clean onset, no digital tick
+    if body > 0:
+        knock = rng.normal(0, 1, n) * (1 - np.exp(-t / 0.0004)) * np.exp(-t / body_tau)
+        x += _shape(knock, [(body_hz, 1.4, 1.0)], 60, 1800, floor=0.0) * body
+    return x
+
+
+def _at(x: np.ndarray, seconds: float, n: int) -> np.ndarray:
+    d = int(seconds * SR)
+    return np.concatenate([np.zeros(d), x])[:n]
+
+
+def _peak1(x: np.ndarray) -> np.ndarray:
+    return x / (np.abs(x).max() + 1e-12)
+
+
+def _dense(x: np.ndarray, target_db: float) -> np.ndarray:
+    """Soft-saturate a short hit until its loudest 50 ms reaches target_db (at a 0.9 peak), like a
+    recorded and limited sample. Without it, clean noise hits sound much quieter than they peak."""
+    w = int(0.05 * SR)
+
+    def loudest(y: np.ndarray) -> float:
+        m = y.mean(axis=1) if y.ndim == 2 else y
+        m = m / (np.abs(m).max() + 1e-12) * 0.9
+        return 10 * np.log10(np.convolve(m ** 2, np.ones(w) / w, "same").max() + 1e-12)
+
+    for drive in (1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0):
+        y = np.tanh(x / (np.abs(x).max() + 1e-12) * drive)
+        if loudest(y) >= target_db:
+            return y
+    return y
+
+
 def click() -> np.ndarray:
-    n = int(0.06 * SR)
-    tr = _band(_noise(n, 1), 1500, 12000) * _decay(n, 0.0012)
-    body = _tone(4200, 0.06) * _decay(n, 0.008) * 0.5 + _tone(2600, 0.06) * _decay(n, 0.012) * 0.3
-    return _normalise(_fade(_stereo(tr + body)))
+    """A small, dry button click: press and a softer release a few ms later."""
+    n = int(0.04 * SR)
+    press = _snap(n, 1, 0.0011, [(3400, 1.2, 1.0), (7200, 1.0, 0.6)], lo=1200, bounces=((0.0009, 0.3),), body=0.25,
+                  body_tau=0.002, body_hz=700)
+    release = _snap(n, 2, 0.0008, [(4600, 1.0, 1.0)], lo=1800) * 0.35
+    return _normalise(_fade(_stereo(_dense(_peak1(press) + _at(_peak1(release), 0.007, n) * 0.35, -21))))
 
 
 def click_loud() -> np.ndarray:
-    n = int(0.12 * SR)
-    tr = _band(_noise(n, 2), 900, 14000) * _decay(n, 0.002)
-    body = _tone(2200, 0.12) * _decay(n, 0.018) * 0.6 + _tone(3400, 0.12) * _decay(n, 0.01) * 0.35
-    thump = _tone(np.linspace(180, 90, n), 0.12) * _decay(n, 0.02) * 0.7
-    return _normalise(_fade(_stereo(_reverb(tr + body + thump, 0.25, 0.12)[:n])))
-
-
-def _mech_click(n: int, seed: int, bright: float, body_hz: tuple[float, ...], tau: float, thump: float) -> np.ndarray:
-    tr = _band(_noise(n, seed), 600, bright) * _decay(n, 0.0025)
-    body = sum(_tone(f, n / SR, seed + i) * _decay(n, tau * (1 - 0.15 * i)) * (0.5 / (1 + i)) for i, f in enumerate(body_hz))
-    low = _tone(np.linspace(150, 70, n), n / SR) * _decay(n, 0.025) * thump
-    return tr + body + low
+    """A hard snap with a little weight: a big camera button or a typewriter key."""
+    n = int(0.09 * SR)
+    x = _snap(n, 3, 0.002, [(2200, 1.0, 1.0), (4800, 1.0, 0.8), (9000, 1.0, 0.35)], lo=600,
+              bounces=((0.0013, 0.3), (0.0029, 0.15)), body=0.9, body_tau=0.006, body_hz=330)
+    return _normalise(_fade(_stereo(_reverb(_dense(_peak1(x), -18), 0.12, 0.07, bright=7000)[:n], 0.2)))
 
 
 def shutter(variant: int) -> np.ndarray:
-    """Four different camera shutters: SLR, fast DSLR, big mechanical, phone."""
-    if variant == 1:  # mechanical SLR: mirror up ... shutter, mirror down
-        n = int(0.25 * SR)
-        a = _mech_click(n, 11, 9000, (1850, 3100), 0.03, 0.8)
-        b = _mech_click(n, 12, 8000, (1500, 2600), 0.04, 1.0) * 0.85
-        gap = int(0.072 * SR)
-        x = a + np.concatenate([np.zeros(gap), b])[:n]
-        return _normalise(_fade(_stereo(_reverb(x, 0.3, 0.1)[:n], 0.4)))
-    if variant == 2:  # crisp DSLR with a quick motor ratchet
-        n = int(0.22 * SR)
-        a = _mech_click(n, 21, 12000, (2400, 4100), 0.018, 0.5)
-        b = _mech_click(n, 22, 11000, (2100, 3600), 0.022, 0.6) * 0.9
-        x = a + np.concatenate([np.zeros(int(0.045 * SR)), b])[:n]
-        for j in range(5):
-            x += np.concatenate([np.zeros(int((0.09 + j * 0.006) * SR)), _band(_noise(n, 30 + j), 2500, 9000) * _decay(n, 0.0015) * 0.25])[:n]
-        return _normalise(_fade(_stereo(x, 0.3)))
-    if variant == 3:  # big, loud mechanical shutter with room
-        n = int(0.4 * SR)
-        a = _mech_click(n, 31, 7000, (1300, 2200, 3300), 0.045, 1.4)
-        b = _mech_click(n, 32, 6500, (1100, 1900), 0.05, 1.6)
-        x = a + np.concatenate([np.zeros(int(0.085 * SR)), b])[:n]
-        x = np.tanh(x * 1.6)
-        return _normalise(_fade(_stereo(_reverb(x, 0.5, 0.2)[:n], 0.6)))
-    # phone shutter: two bright snaps
-    n = int(0.2 * SR)
-    a = _band(_noise(n, 41), 2500, 14000) * _decay(n, 0.006) + _tone(1250, n / SR) * _decay(n, 0.012) * 0.35
-    b = _band(_noise(n, 42), 3000, 15000) * _decay(n, 0.009) * 0.8 + _tone(980, n / SR) * _decay(n, 0.015) * 0.3
-    x = a + np.concatenate([np.zeros(int(0.06 * SR)), b])[:n]
+    """Four camera shutters, each the classic two-part "ka-chik" (first curtain, then second
+    curtain and mirror), in the same order as the reference scripts' shutter sounds."""
+    if variant == 1:  # everyday camera shutter
+        n = int(0.2 * SR)
+        a = _snap(n, 11, 0.004, [(1800, 1.2, 0.8), (3600, 1.0, 1.0), (6500, 1.0, 0.6)], lo=500,
+                  bounces=((0.0011, 0.45), (0.0024, 0.25), (0.0041, 0.12)), body=0.5)
+        b = _snap(n, 12, 0.006, [(1400, 1.2, 1.0), (2800, 1.0, 0.8), (5200, 1.0, 0.4)], lo=400,
+                  bounces=((0.0015, 0.4), (0.0032, 0.2)), body=0.7, body_hz=220)
+        x = _dense(_peak1(a) + _at(_peak1(b), 0.058, n) * 0.85, -17)
+        return _normalise(_fade(_stereo(_reverb(x, 0.15, 0.08, bright=7000)[:n], 0.4)))
+    if variant == 2:  # crisp DSLR, then the motor winding on
+        n = int(0.19 * SR)
+        a = _snap(n, 21, 0.003, [(2500, 1.0, 1.0), (5000, 1.0, 0.9), (9000, 1.0, 0.5)], lo=700,
+                  bounces=((0.0008, 0.35), (0.0019, 0.15)), body=0.35, body_hz=300)
+        b = _snap(n, 22, 0.0045, [(2000, 1.0, 1.0), (4200, 1.0, 0.7)], lo=600,
+                  bounces=((0.0012, 0.3),), body=0.5, body_hz=260)
+        x = _peak1(a) + _at(_peak1(b), 0.034, n) * 0.9
+        rng = np.random.default_rng(23)
+        motor = np.zeros(n)
+        t0, t1 = 0.062, 0.135
+        k = t0
+        while k < t1:  # the wind-on ratchet: a fast train of tiny ticks
+            i = int(k * SR)
+            m = min(n - i, int(0.003 * SR))
+            p = (k - t0) / (t1 - t0)
+            motor[i:i + m] += rng.normal(0, 1, m) * np.exp(-np.arange(m) / SR / 0.0004) * np.sin(np.pi * p) ** 0.7
+            k += 1 / rng.uniform(380, 460)
+        buzz = rng.normal(0, 1, n) * np.clip(np.sin(np.pi * np.clip((np.arange(n) / SR - t0) / (t1 - t0), 0, 1)), 0, 1)
+        motor = _shape(motor, [(3000, 1.4, 1.0)], 1200, 9000) + _shape(buzz, [(1800, 1.0, 1.0)], 900, 4000) * 0.08
+        x += _peak1(motor) * 0.22
+        return _normalise(_fade(_stereo(_dense(x, -17), 0.3)))
+    if variant == 3:  # heavy film SLR: big mirror slap, then the clack back
+        n = int(0.3 * SR)
+        a = _snap(n, 31, 0.007, [(900, 1.2, 1.0), (2000, 1.0, 0.9), (4000, 1.0, 0.5)], lo=200,
+                  bounces=((0.002, 0.5), (0.0045, 0.3), (0.008, 0.15)), body=0.9, body_tau=0.012, body_hz=180)
+        b = _snap(n, 32, 0.009, [(800, 1.2, 1.0), (1700, 1.0, 0.8), (3500, 1.0, 0.4)], lo=180,
+                  bounces=((0.0025, 0.4), (0.006, 0.2)), body=1.0, body_tau=0.014, body_hz=160)
+        x = _dense(_peak1(a) + _at(_peak1(b), 0.085, n) * 0.95, -14)
+        return _normalise(_fade(_stereo(_reverb(x, 0.3, 0.12, bright=5000)[:n], 0.6)))
+    # phone: two bright, airy snaps ("ch-chk")
+    n = int(0.16 * SR)
+    a = _snap(n, 41, 0.0035, [(5500, 1.4, 1.0), (9500, 1.0, 0.6)], lo=2000, hi=16000)
+    a += _shape(np.random.default_rng(43).normal(0, 1, n) * np.exp(-np.arange(n) / SR / 0.012), [(6000, 2.0, 1.0)], 3000, 12000) * 0.25
+    b = _snap(n, 42, 0.005, [(4200, 1.3, 1.0), (8000, 1.0, 0.5)], lo=1500, hi=16000)
+    b += _shape(np.random.default_rng(44).normal(0, 1, n) * np.exp(-np.arange(n) / SR / 0.018), [(5000, 2.0, 1.0)], 2500, 11000) * 0.3
+    x = _dense(_peak1(a) + _at(_peak1(b), 0.068, n) * 0.85, -18)
     return _normalise(_fade(_stereo(x, 0.2)))
 
 
@@ -254,13 +331,42 @@ def builtin_bank() -> dict[str, np.ndarray]:
     return {name: make() for name, make in BUILTIN.items()}
 
 
+# The reference scripts' own sample names (sfx17_dslr.wav ...), so that folder works as it is.
+# The four shutters keep the scripts' rotation order: shutterT, dslr, shutter_loud, phone.
+ALIASES = {
+    "shuttert": "shutter1", "shutter": "shutter1", "dslr": "shutter2", "shutter_loud": "shutter3", "phone": "shutter4",
+}
+
+
+def _sound_name(stem: str) -> str | None:
+    """'Shutter1' -> shutter1, 'sfx17_dslr' -> shutter2, 'sfx15_click_loud' -> click_loud."""
+    key = stem.lower().strip()
+    if key in NAMES:
+        return key
+    key = re.sub(r"^sfx\d*[_ -]+", "", key).replace(" ", "_").replace("-", "_")
+    if key in NAMES:
+        return key
+    return ALIASES.get(key)
+
+
 def load_bank(custom_folder: str | None = None) -> dict[str, np.ndarray]:
-    """Built-in sounds, with any matching files from the custom folder swapped in."""
+    """Built-in sounds, with any matching files from the custom folder swapped in.
+    A file named exactly like a sound (shutter1.wav) wins over one matched by its old name."""
     bank = dict(builtin_bank())
     if custom_folder and Path(custom_folder).is_dir():
         from .ffmpeg import read_audio
 
-        files = {p.stem.lower(): p for p in Path(custom_folder).iterdir() if p.is_file() and not p.name.startswith(".")}
+        files: dict[str, Path] = {}
+        exact: set[str] = set()
+        for f in sorted(Path(custom_folder).iterdir()):
+            if not f.is_file() or f.name.startswith("."):
+                continue
+            name = _sound_name(f.stem)
+            if name is None or name in exact:
+                continue
+            files[name] = f
+            if f.stem.lower() == name:
+                exact.add(name)
         for name in NAMES:
             p = files.get(name)
             if p is None:

@@ -281,8 +281,9 @@ class SettingsDialog(QDialog):
         self.sfx = QLineEdit(s.sfx_folder)
         self.sfx.setPlaceholderText("built-in sounds")
         form.addRow("Sound effects folder", chooser(self.sfx, True))
-        hint = QLabel("Files named click, click_loud, shutter1–shutter4, riser, whoosh, impact, flash, ring, glitch\n"
-                      "(.wav, .mp3, .aif…) replace the built-in sound with the same name.")
+        hint = QLabel("Your old sound folder works as it is (sfx17_dslr, sfx16_click, sfx15_flash…).\n"
+                      "Or name files click, click_loud, shutter1–shutter4, riser, whoosh, impact, flash, ring, glitch.\n"
+                      "Any sound you don't supply uses the built-in one.")
         hint.setObjectName("note")
         form.addRow("", hint)
         self.lut = QLineEdit(s.lut_path)
@@ -500,6 +501,9 @@ class MainWindow(QMainWindow):
         self.strict = QCheckBox("Never reuse a clip (fewer cuts if clips run out)")
         self.strict.setChecked(self.settings.strict)
         form.addWidget(self.strict, 3, 1, 1, 3)
+        self.texture = QCheckBox("Old film texture (grain, faded blacks)")
+        self.texture.setChecked(self.settings.texture)
+        form.addWidget(self.texture, 4, 1, 1, 3)
         outer.addLayout(form)
 
         self.make_btn = QPushButton("Make edit")
@@ -744,6 +748,7 @@ class MainWindow(QMainWindow):
             sfx_folder=s.sfx_folder or None,
             use_masks=s.use_masks and os.environ.get("VELLUM_NO_MASKS") != "1",
             strict=self.strict.isChecked(),
+            texture=self.texture.isChecked(),
             workers=s.workers,
             crf=s.crf,
             preset=os.environ.get("VELLUM_PRESET", "medium"),
@@ -756,6 +761,7 @@ class MainWindow(QMainWindow):
         self.settings.last_look = settings.look
         self.settings.last_length = settings.length
         self.settings.strict = settings.strict
+        self.settings.texture = settings.texture
         settings_mod.save(self.settings)
         song = self.song
         self.result_panel.setVisible(False)

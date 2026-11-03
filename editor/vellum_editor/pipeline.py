@@ -60,6 +60,7 @@ class EditSettings:
     sfx_folder: str | None = None
     use_masks: bool = True
     strict: bool = False  # never use a clip twice, even at a different moment
+    texture: bool = True  # old-film texture: grain, faded blacks, full vignette and glow
     workers: int | None = None
     crf: int = 17
     preset: str = "medium"
@@ -232,7 +233,7 @@ def render_plan(plan: EditPlan, settings: EditSettings, out_dir: Path, progress:
     work = Path(tempfile.mkdtemp(prefix="vellum-"))
     try:
         extract_all(plan, work, settings.scale, lut_path=settings.lut_path, lut_apply=settings.lut_apply,
-                    progress=lambda p: progress("frames", p), workers=settings.workers)
+                    texture=settings.texture, progress=lambda p: progress("frames", p), workers=settings.workers)
         check()
         if settings.use_masks and masks_mod.available():
             compute_masks(plan, work, progress=lambda p: progress("masks", p))

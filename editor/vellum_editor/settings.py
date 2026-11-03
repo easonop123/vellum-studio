@@ -19,6 +19,7 @@ class AppSettings:
     last_look: str = "darkroom"
     last_length: str = "short"
     strict: bool = False
+    texture: bool = True  # old-film texture (grain, faded blacks)
 
     @property
     def crf(self) -> int:

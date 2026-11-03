@@ -28,13 +28,14 @@ Updated as I go. Newest status first.
 - **Effects:**
   - **Small:** punch-in, zoom blur, whip blur, shake + RGB split, white and black flash, light leak, glitch, flicker, typed text, flickering red corner labels, B&W flash, red border, zoom-through speed ramp, colour pop (v8), slit reveal and sliding strips (v6), light-leak cut (v4/v6), polaroid fly-off (v7/v8).
   - **Big (max 2):** 3×3 grid, triple frame + sticker, film strip, giant letters, spaced glowing title, cut-out sticker, white silhouette flash.
-- **Looks:** Darkroom (your reference grade), Warm Film, Neon Night, Clean. Night street-light shots get the orange pulled down.
+- **Looks:** Darkroom (your reference grade), Warm Film, Neon Night, Clean. Night street-light shots get the orange pulled down. An **Old film texture** box (on by default) adds the grain and faded blacks; untick it for a clean picture.
 - **Sound design:**
   - a shutter on almost every cut (4 rotating);
   - the drop: riser, whoosh, impact, flash, click burst and ring;
   - whooshes on whips, clicks on grid tiles, the ending hits;
   - random volume/pan per hit, and the song ducked under impacts in the preview.
-  - All synthesised in code; your own sound folder can replace any sound.
+  - All synthesised in code. The shutters and clicks are short mechanical snaps (the first version used ringing tones that sounded like a xylophone; fixed after your first real edit).
+  - Point Settings at your old sound folder and your own samples (`sfx17_dslr`, `sfx16_click`…) are used as they are.
 - **Messy inputs:**
   - iPhone HDR/HLG and Dolby Vision are tone-mapped to SDR; HEVC clips work.
   - Rotated and vertical clips, and mixed 24/25/30/60/120 fps (real slow motion on 50+ fps clips at the drop and climax).

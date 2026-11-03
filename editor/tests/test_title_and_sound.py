@@ -58,3 +58,41 @@ def test_custom_sound_folder_overrides_builtins(tmp_path):
     bank = sfx.load_bank(str(tmp_path))
     assert len(bank["shutter1"]) == 4800
     assert len(bank["shutter2"]) == len(sfx.builtin_bank()["shutter2"])
+
+
+def test_old_sample_names_from_the_reference_scripts_work(tmp_path):
+    from vellum_editor.ffmpeg import write_wav
+
+    def put(name, n):
+        tone = (np.random.default_rng(n).normal(0, 0.3, n)).astype(np.float32)
+        write_wav(tmp_path / name, np.stack([tone, tone], 1))
+
+    put("sfx17_dslr.wav", 1111)
+    put("sfx15_shutter_loud.wav", 2222)
+    put("sfx13_shutterT.wav", 3333)
+    put("sfx17_phone.wav", 4444)
+    put("sfx15_click_loud.wav", 5555)
+    put("sfx11_whoosh.wav", 6666)
+    put("shutter2.wav", 7777)  # an exact name beats the old one
+    bank = sfx.load_bank(str(tmp_path))
+    assert [len(bank[k]) for k in ("shutter1", "shutter2", "shutter3", "shutter4")] == [3333, 7777, 2222, 4444]
+    assert len(bank["click_loud"]) == 5555 and len(bank["whoosh"]) == 6666
+    assert len(bank["click"]) == len(sfx.builtin_bank()["click"])
+
+
+def test_shutters_and_clicks_are_snaps_not_notes():
+    """The built-in camera sounds are noise hits. Ringing tones made them sound like a xylophone."""
+    bank = sfx.builtin_bank()
+    for name in ["click", "click_loud", "shutter1", "shutter2", "shutter3", "shutter4"]:
+        m = bank[name].mean(axis=1)
+        win, scores, weights = 480, [], []
+        for a in range(0, len(m) - win, win // 2):
+            seg = m[a : a + win] - m[a : a + win].mean()
+            e = float((seg**2).sum())
+            if e < 1e-4:
+                continue
+            ac = np.correlate(seg, seg, "full")[win - 1 :]
+            scores.append(float((ac / (ac[0] + 1e-12))[8 : win // 2].max()))
+            weights.append(e)
+        periodicity = float(np.average(scores, weights=weights))
+        assert periodicity < 0.4, (name, periodicity)  # the old tonal versions measured 0.7-0.8

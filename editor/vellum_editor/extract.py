@@ -87,13 +87,13 @@ def shot_frame_counts(plan: EditPlan) -> dict[str, int]:
 
 
 def extract_shot(job: Job, info: ClipInfo, analysis: ClipAnalysis, out_dir: Path, scale: float, look_key: str,
-                 lut_path: str | None, lut_apply: str) -> dict:
+                 lut_path: str | None, lut_apply: str, texture: bool = True) -> dict:
     shot = job.shot
     d = out_dir / shot.id
     d.mkdir(parents=True, exist_ok=True)
     bw, bh = box_px(shot, min(scale, 1.0))
     look = get_look(look_key)
-    grade = grade_filter(look, shot.raw, analysis.night_orange)
+    grade = grade_filter(look, shot.raw, analysis.night_orange, texture)
     meta = {"w": bw, "h": bh, "map": None}
 
     if info.kind == "photo":
@@ -145,6 +145,7 @@ def extract_shot(job: Job, info: ClipInfo, analysis: ClipAnalysis, out_dir: Path
 
 
 def extract_all(plan: EditPlan, work: Path, scale: float, *, lut_path: str | None = None, lut_apply: str = "off",
+                texture: bool = True,
                 progress: Callable[[float], None] | None = None, workers: int | None = None) -> None:
     frames_dir = work / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
@@ -158,7 +159,7 @@ def extract_all(plan: EditPlan, work: Path, scale: float, *, lut_path: str | Non
 
     def one(job: Job):
         a = analyses[job.shot.clip]
-        extract_shot(job, a.info, a, frames_dir, scale, plan.look, lut_path, lut_apply)
+        extract_shot(job, a.info, a, frames_dir, scale, plan.look, lut_path, lut_apply, texture)
         done[0] += 1
         if progress:
             progress(done[0] / max(1, len(jobs)))
