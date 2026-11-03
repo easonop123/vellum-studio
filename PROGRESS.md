@@ -7,7 +7,7 @@ Updated as I go. Newest status first.
 | Part | Status |
 | --- | --- |
 | 1. Website (showcase, order form, Stripe test payments, admin) | **Works.** Tests pass here and on GitHub. Needs your Vercel + Stripe setup (YOUR-STEPS.md, Part A) |
-| 2. Mac app engine | **Works.** Makes complete edits; 75 tests pass on Linux and on GitHub's Mac |
+| 2. Mac app engine | **Works.** Makes complete edits; 79 tests pass on Linux and on GitHub's Mac |
 | 3. Mac `.dmg` built by GitHub Actions | **Works.** Every push builds the app on GitHub's Apple Silicon Mac, checks it makes an edit, and makes the `.dmg`. Releases start once `main` has the code (YOUR-STEPS A1) |
 | 4. Polish | Most effects from your v4–v8 scripts and four looks are in. Fine-tuning needs your first real edit |
 
@@ -47,7 +47,7 @@ Updated as I go. Newest status first.
   - Clip analysis is cached, so re-renders after a nudge are quick.
 - **Disk and speed:** only the frames each shot needs are extracted, at most 1920 wide. A 30 s edit uses about 0.7 GB of temp space, deleted afterwards. All CPU cores are used, with a progress bar and time left.
   - Full 1080p 30 s edit: about 4 minutes on this 4-core cloud machine. Expect roughly 1.5–2 minutes on an Apple Silicon Mac.
-- **Tests (75):**
+- **Tests (79):**
   - beat and drop accuracy at five tempos;
   - probing (rotation, HDR, fps, photos, corrupt files) and junk rejection;
   - planner rules (structure, the grid, never repeated footage, never side by side, strict mode, ≤ 2 big effects);
